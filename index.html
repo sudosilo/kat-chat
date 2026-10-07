@@ -420,6 +420,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
         <p>The row of faces is everyone in the chat. A green dot means they have it open now. Tap anyone to see their activity. Tap your own face to set your name, color, and picture.</p>
         <p>Tap a message to react, reply, copy, edit, or delete it. Type @ to mention someone. The magnifier searches everything you can see.</p>
         <p>Use the paperclip for files up to 50 MB and the microphone for voice notes. Video and music links from popular sites play right in the chat.</p>
+        <p>Mention @Claude to ask the AI in the chat. Messages that mention Claude, plus recent chat it can see, are sent to Anthropic to write the reply.</p>
         <p>Appearance, background, and sound choices are saved on each device.</p>
       </div>
     </details>
@@ -428,7 +429,8 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1007p";
+const BUILD = "kat-1007q";
+const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -592,7 +594,7 @@ async function loadAvatars(){
   if (!need.length) return;
   const { data } = await sb.storage.from(AV_BUCKET).createSignedUrls(need, 3600);
   if (data) data.forEach(r => { if (r.signedUrl && r.path) avUrl[r.path] = r.signedUrl; });
-  renderRail(); render(); if (sheetFor && sheetFor !== "invites" && sheetFor !== "search") openProfile(sheetFor, true);
+  renderRail(); render(); if (sheetFor && !["invites", "search", "botnote"].includes(sheetFor)) openProfile(sheetFor, true);
 }
 function setProfile(r){ if (r && r.id) profiles[r.id] = { name: r.name || "", color: r.color || null, avatar_path: r.avatar_path || null }; }
 
@@ -601,9 +603,11 @@ function renderRail(){
   const r = $("#rail"); if (r.hidden) return;
   const left = r.scrollLeft; r.textContent = "";
   const ids = members.map(m => m.user_id); if (!ids.includes(myId)) ids.unshift(myId);
-  ids.sort((a, b) => (a === myId ? -1 : b === myId ? 1 : 0) || (online.has(b) - online.has(a)) || nameOf(a).localeCompare(nameOf(b)));
+  if (profiles[BOT_ID] && !ids.includes(BOT_ID)) ids.push(BOT_ID);
+  const rank = id => id === myId ? 0 : id === BOT_ID ? 1 : 2;
+  ids.sort((a, b) => (rank(a) - rank(b)) || (online.has(b) - online.has(a)) || nameOf(a).localeCompare(nameOf(b)));
   for (const id of ids){
-    const b = btn("person" + (online.has(id) || id === myId ? " on" : ""), null, () => openProfile(id));
+    const b = btn("person" + (online.has(id) || id === myId || id === BOT_ID ? " on" : ""), null, () => openProfile(id));
     b.append(avatarEl(id, 46), el("span", "nm", id === myId ? "You" : nameOf(id)));
     b.setAttribute("aria-label", (id === myId ? "You, " : "") + nameOf(id) + (online.has(id) ? ", online" : ""));
     r.append(b);
@@ -620,7 +624,7 @@ async function refreshMembers(){
   if (refreshing || !sb) return; refreshing = true;
   const { data } = await sb.rpc("list_members");
   refreshing = false;
-  if (data){ members = data; renderRail(); updateHeader(); renderAccount(); if (sheetFor && sheetFor !== "invites" && sheetFor !== "search") openProfile(sheetFor, true); }
+  if (data){ members = data; renderRail(); updateHeader(); renderAccount(); if (sheetFor && !["invites", "search", "botnote"].includes(sheetFor)) openProfile(sheetFor, true); }
 }
 
 /* Sheets */
@@ -639,6 +643,17 @@ function openSheet(key){
 function openProfile(id, refreshOnly){
   if (refreshOnly && sheetFor !== id) return;
   if (refreshOnly && $("#sheet").querySelector(".edit,.admin select:focus")) return;
+  if (id === BOT_ID){
+    const shb = openSheet(id);
+    const topb = el("div", "top on");
+    const pnb = el("div", "pname", "Claude"); pnb.append(el("span", "badge-owner", "AI"));
+    topb.append(avatarEl(BOT_ID, 88), pnb, el("div", "pstat", "AI assistant made by Anthropic"));
+    shb.append(topb,
+      el("p", "hint2", "Mention @Claude in a message and it replies right in the chat, using the last 30 or so messages you can see as context."),
+      el("p", "hint2", "Messages that mention Claude, plus that recent context, are sent to Anthropic to write the reply. Each person gets 30 Claude replies a day."));
+    shb.querySelectorAll(".hint2").forEach(p => p.style.marginTop = "12px");
+    return;
+  }
   const sh = openSheet(id);
   const top = el("div", "top" + (online.has(id) ? " on" : ""));
   const pn = el("div", "pname", nameOf(id) + (id === myId ? " (you)" : ""));
@@ -854,6 +869,7 @@ function renderAccount(){
   if (inChat){
     acts.append(btn("mini", "Edit my profile", () => { closeMenu(); openProfile(myId); }));
     acts.append(btn("mini", "Invite someone", openInvites));
+    if (isOwner()) acts.append(btn("mini", "Claude's personality", openBotNote));
   }
   if (!(me.identities || []).some(i => i.provider === "google")) acts.append(btn("mini strong", "Link Gmail", linkGmail));
   else acts.append(btn("mini", "Sign out", signOutAll));
@@ -959,7 +975,8 @@ $("#ctxClose").addEventListener("click", () => { if (recording) stopRecording(tr
 
 /* Mentions */
 function mentionNames(){
-  return [...new Set(members.map(m => nameOf(m.user_id)).filter(n => n !== "Someone"))].sort((a, b) => b.length - a.length);
+  const ids = members.map(m => m.user_id); if (profiles[BOT_ID]) ids.push(BOT_ID);
+  return [...new Set(ids.map(nameOf).filter(n => n !== "Someone"))].sort((a, b) => b.length - a.length);
 }
 function escRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function appendMentions(node, str, flags){
@@ -1356,6 +1373,7 @@ $("#form").addEventListener("submit", async e => {
   if (error){ showNote("Message didn't send. Check your connection and try again."); }
   else {
     const nm = toMsg(data); justSent = true; unreadMark = null; addMsg(nm); bumpStats(nm);
+    if (/@claude\b/i.test(nm.text) && profiles[BOT_ID]) askClaude(nm.id);
     text.value = ""; text.style.height = "auto"; setTyping(false); showNote(""); if (ctx) endCtx();
   }
   updateSend();
@@ -1376,15 +1394,49 @@ function setTyping(on){
   if (on === typingNow) return;
   typingNow = on; chan.track({ typing: on }).catch(() => {});
 }
+let typingText = "", botThinking = false, botTimer = null;
+function paintTyping(){ $("#typing").textContent = [botThinking ? "Claude is thinking..." : "", typingText].filter(Boolean).join("   "); }
+function setBotThinking(on){
+  botThinking = on; clearTimeout(botTimer);
+  if (on) botTimer = setTimeout(() => setBotThinking(false), 70000);
+  paintTyping();
+}
+async function askClaude(id){
+  setBotThinking(true);
+  try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: true } }); }catch(e){}
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ message_id: id }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) showNote(j.error || "Claude couldn't answer right now.");
+  }catch(e){ showNote("Claude couldn't answer right now."); }
+  setBotThinking(false);
+  try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: false } }); }catch(e){}
+}
+async function openBotNote(){
+  closeMenu();
+  const sh = openSheet("botnote");
+  sh.append(el("h3", null, "Claude's personality"), el("p", "hint2", "Notes Claude follows in this chat, like keep it short, no swearing, or talk like a pirate. Up to 1000 characters."));
+  const ta = document.createElement("textarea"); ta.rows = 6; ta.maxLength = 1000; ta.style.width = "100%"; ta.style.marginBottom = "10px"; ta.value = "Loading..."; ta.disabled = true;
+  const msg = el("p", "hint2");
+  const save = btn("send", "Save", async () => {
+    const { data, error } = await sb.rpc("set_bot_note", { p_note: ta.value });
+    msg.textContent = (!error && data) ? "Saved. Claude uses it from the next reply." : "Couldn't save. Try again.";
+  });
+  sh.append(ta, save, msg);
+  const { data } = await sb.rpc("get_bot_note");
+  ta.value = data || ""; ta.disabled = false; ta.focus();
+}
 function onPresence(){
   const state = chan.presenceState();
   online = new Set(Object.keys(state));
   const others = [...online].filter(k => k !== myId);
   const typers = others.filter(k => state[k].some(p => p.typing === true));
-  $("#typing").textContent = typers.length ? (typers.length === 1 ? nameOf(typers[0]) + " is typing..." : typers.length + " people are typing...") : "";
+  typingText = typers.length ? (typers.length === 1 ? nameOf(typers[0]) + " is typing..." : typers.length + " people are typing...") : "";
+  paintTyping();
   if (others.some(k => !memberOf(k))) refreshMembers();
   renderRail(); updateHeader();
-  if (sheetFor && sheetFor !== "invites" && sheetFor !== "search") openProfile(sheetFor, true);
+  if (sheetFor && !["invites", "search", "botnote"].includes(sheetFor)) openProfile(sheetFor, true);
 }
 
 /* Search */
@@ -1552,8 +1604,10 @@ async function enterChat(justJoined){
       const nm = toMsg(p.new); const fresh = !msgById(nm.id);
       if (!fresh) return;
       noteIncoming(nm); addMsg(nm); bumpStats(nm);
-      if (nm.from !== myId){ playSound(); refreshProfile(nm.from); }
+      if (nm.from === BOT_ID) setBotThinking(false);
+      if (nm.from !== myId){ playSound(); if (nm.from !== BOT_ID) refreshProfile(nm.from); }
     })
+    .on("broadcast", { event: "claude" }, p => setBotThinking(!!(p.payload && p.payload.on)))
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages" }, p => {
       if (!p.new || !p.new.id) return;
       if (msgById(p.new.id)){ addMsg(toMsg(p.new)); refreshMembers(); }

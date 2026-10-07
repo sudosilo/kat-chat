@@ -1,22 +1,22 @@
 <!doctype html>
-<html lang="en" data-skin="daylight">
+<html lang="en" data-skin="kat" data-mode="day">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Cat Command Chat</title>
-<script>try{var s=localStorage.getItem("katSkin");if(s)document.documentElement.dataset.skin=s;}catch(e){}</script>
+<script>try{var d=document.documentElement,s=localStorage.getItem("katSkin"),m=localStorage.getItem("katMode");if(s==="orbit")d.dataset.skin="orbit";if(m==="night")d.dataset.mode="night";else if(!m&&s==="orbit")d.dataset.mode="night";}catch(e){}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5/600.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5/700.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/400.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/700.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-/* Skins: each data-skin value swaps the variables below. Daylight is the default light look. Orbit is the original design from the first version of this app. */
-:root,[data-skin="daylight"]{
-  --bg:#fbf6ee; --panel:#ffffff; --fg:#2a1e14; --muted:#7a6a5c; --line:#ead9c6;
-  --orange:#ff8a2b; --orange-deep:#e2661a; --mine-fg:#2a1300; --theirs:#ffffff; --theirs-fg:#2a1e14;
-  --live:#2fb886; --live-glow:transparent; --title-accent:#e2661a;
+/* Look = skin (shapes and fonts) plus mode (day or night colors). Kat is the house style. Orbit is the original design this app started from; Orbit at night is that original exactly. */
+:root{
   --display:"Trebuchet MS", system-ui, sans-serif; --body:system-ui, -apple-system, "Segoe UI", sans-serif;
+  --orange:#ff8a2b; --orange-deep:#e2661a; --mine-fg:#2a1300;
+  --bg:#fbf6ee; --panel:#ffffff; --fg:#2a1e14; --muted:#7a6a5c; --line:#ead9c6; --theirs:#ffffff; --theirs-fg:#2a1e14;
+  --live:#2fb886; --live-glow:transparent; --title-accent:#e2661a;
   --helmet:#bcd8ff; --helmet-op:.35; --helmet-stroke:#8fb4e6; --shine-op:.8;
   --sky:
     radial-gradient(2px 2px at 12% 18%, #f2b27a 50%, transparent 51%),
@@ -26,14 +26,49 @@
     radial-gradient(2px 2px at 55% 30%, #f2b27a 50%, transparent 51%),
     radial-gradient(2.5px 2.5px at 6% 82%, #f2b27a 50%, transparent 51%),
     radial-gradient(ellipse at 85% 0%, #ffe9d2, transparent 60%);
-  --namebtn-bg:var(--panel);
+  --namebtn-bg:var(--panel); --scrim:rgba(42,30,20,.35);
   color-scheme:light;
 }
+[data-skin="kat"][data-mode="night"]{
+  --bg:#1d1612; --panel:#2a201a; --fg:#f6ece2; --muted:#b7a594; --line:#3d3027; --theirs:#2a201a; --theirs-fg:#f6ece2;
+  --live:#4fd1a1; --live-glow:transparent; --title-accent:#ff9d4d;
+  --helmet:#bcd8ff; --helmet-op:.16; --helmet-stroke:#8fb4e6; --shine-op:.6;
+  --sky:
+    radial-gradient(2px 2px at 12% 18%, #8a5a35 50%, transparent 51%),
+    radial-gradient(2px 2px at 72% 9%, #8a5a35 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 88% 42%, #8a5a35 50%, transparent 51%),
+    radial-gradient(2px 2px at 33% 64%, #8a5a35 50%, transparent 51%),
+    radial-gradient(2px 2px at 55% 30%, #8a5a35 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 6% 82%, #8a5a35 50%, transparent 51%),
+    radial-gradient(ellipse at 85% 0%, #3a2416, transparent 60%);
+  --scrim:rgba(0,0,0,.5);
+  color-scheme:dark;
+}
 [data-skin="orbit"]{
-  --bg:#0b0f24; --panel:#141a38; --fg:#f3efe6; --muted:#a9a6c4; --line:#2b3260;
-  --orange:#ff8a2b; --orange-deep:#e2661a; --mine-fg:#2a1300; --theirs:#1c2350; --theirs-fg:#f3efe6;
-  --live:#7cf0c4; --live-glow:#7cf0c4; --title-accent:#ff8a2b;
   --display:"Fredoka", "Trebuchet MS", sans-serif; --body:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --namebtn-bg:transparent;
+}
+[data-skin="orbit"][data-mode="day"]{
+  --bg:#eef2ff; --panel:#ffffff; --fg:#1b1f3a; --muted:#5d6290; --line:#d3d9f2; --theirs:#ffffff; --theirs-fg:#1b1f3a;
+  --live:#1fae7f; --live-glow:#7cf0c4; --title-accent:#e2661a;
+  --helmet:#9ab8ec; --helmet-op:.3; --helmet-stroke:#7d9ad4; --shine-op:.9;
+  --sky:
+    radial-gradient(1.5px 1.5px at 12% 18%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 72% 9%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(2px 2px at 88% 42%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 33% 64%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 55% 30%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(2px 2px at 6% 82%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 93% 88%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 46% 92%, #9aa7d9 50%, transparent 51%),
+    radial-gradient(ellipse at 85% 0%, #dcd6ff, transparent 60%),
+    radial-gradient(ellipse at 0% 100%, #ffe4ef, transparent 55%);
+  --scrim:rgba(27,31,58,.35);
+  color-scheme:light;
+}
+[data-skin="orbit"][data-mode="night"]{
+  --bg:#0b0f24; --panel:#141a38; --fg:#f3efe6; --muted:#a9a6c4; --line:#2b3260; --theirs:#1c2350; --theirs-fg:#f3efe6;
+  --live:#7cf0c4; --live-glow:#7cf0c4; --title-accent:#ff8a2b;
   --helmet:#cfe3ff; --helmet-op:.14; --helmet-stroke:#cfe3ff; --shine-op:.55;
   --sky:
     radial-gradient(1px 1px at 12% 18%, #ffffff 50%, transparent 51%),
@@ -46,7 +81,7 @@
     radial-gradient(1px 1px at 46% 92%, #ffffff 50%, transparent 51%),
     radial-gradient(ellipse at 85% 0%, #1a1240, transparent 60%),
     radial-gradient(ellipse at 0% 100%, #2a1530, transparent 55%);
-  --namebtn-bg:transparent;
+  --scrim:rgba(0,0,0,.5);
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -78,8 +113,33 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
 .skin{font:inherit;font-size:.9rem;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
 .skin[aria-pressed="true"]{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange)}
 .swatch{width:22px;height:22px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
-.swatch.daylight{background:radial-gradient(circle at 35% 35%, #ff8a2b 30%, #fbf6ee 32%)}
+.swatch.kat{background:radial-gradient(circle at 35% 35%, #ff8a2b 30%, #fbf6ee 32%)}
 .swatch.orbit{background:radial-gradient(circle at 35% 35%, #ff8a2b 30%, #0b0f24 32%)}
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(360px,92vw);z-index:21;background:var(--bg);color:var(--fg);border-left:1px solid var(--line);overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px calc(env(safe-area-inset-bottom,0px) + 24px);box-shadow:-8px 0 30px rgba(0,0,0,.18)}
+@media (prefers-reduced-motion:no-preference){.drawer:not([hidden]){animation:slide .2s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.4}}}
+.dhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:1px dashed var(--line)}
+.dhead .dt{font-family:var(--display);font-weight:700;font-size:1.2rem}
+.dsec{padding-block:14px;border-bottom:1px dashed var(--line)}
+.dsec:last-child{border-bottom:none}
+.dsec .sh{font-family:var(--display);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.dsec .hint{font-size:.8rem;color:var(--muted);margin:8px 0 0}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.seg button{flex:1;font:inherit;font-size:.9rem;padding:9px 10px;border:none;background:transparent;color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.seg button svg{width:16px;height:16px}
+.seg button[aria-pressed="true"]{background:var(--orange);color:var(--mine-fg);font-weight:700}
+.skins{margin-top:10px}
+.acct{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;margin:0;font-size:.88rem}
+.acct dt{color:var(--muted)}
+.acct dd{margin:0;overflow-wrap:anywhere}
+.acct .ok{display:inline-flex;align-items:center;gap:6px}
+.mini{font:inherit;font-size:.8rem;background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:3px 10px;cursor:pointer;margin-left:6px}
+.dactions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+details{border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-top:8px}
+details summary{cursor:pointer;padding:10px 12px;font-weight:700}
+details .body{padding:0 12px 12px;font-size:.88rem;color:var(--fg)}
+details .body p{margin:0 0 8px}
+details .body p:last-child{margin-bottom:0}
 #lane{flex:1;overflow-y:auto;padding-block:16px;display:flex;flex-direction:column;gap:4px;min-height:0}
 .empty{margin:auto;text-align:center;color:var(--muted);max-width:34ch}
 .empty b{display:block;font-family:var(--display);color:var(--fg);font-size:1.15rem;margin-bottom:4px}
@@ -141,18 +201,11 @@ textarea::placeholder{color:var(--muted)}
     <div class="who">
       <span><span class="dot"></span> <span id="onlineText">Connecting...</span></span>
       <button class="namebtn" id="nameBtn" type="button" hidden>Set your name</button>
-      <button class="menubtn" id="menuBtn" type="button" aria-label="Choose a skin" aria-expanded="false">
+      <button class="menubtn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
   </header>
-  <div class="bar" id="skinBar" hidden>
-    <span class="lbl">Skin</span>
-    <div class="skins">
-      <button class="skin" type="button" data-pick="daylight"><span class="swatch daylight"></span>Daylight</button>
-      <button class="skin" type="button" data-pick="orbit"><span class="swatch orbit"></span>Orbit, the original</button>
-    </div>
-  </div>
   <div class="bar" id="nameBar" hidden>
     <label for="nameInput">Your name in this chat</label>
     <input id="nameInput" maxlength="30" placeholder="e.g. Scully">
@@ -171,6 +224,60 @@ textarea::placeholder{color:var(--muted)}
   </form>
 </div>
 
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Menu">
+  <div class="dhead">
+    <span class="dt">Menu</span>
+    <button class="menubtn" id="closeBtn" type="button" aria-label="Close menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <section class="dsec">
+    <p class="sh">Appearance</p>
+    <div class="seg" role="group" aria-label="Day or night">
+      <button type="button" data-mode-pick="day"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Day</button>
+      <button type="button" data-mode-pick="night"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Night</button>
+    </div>
+    <div class="skins">
+      <button class="skin" type="button" data-pick="kat"><span class="swatch kat"></span>Kat</button>
+      <button class="skin" type="button" data-pick="orbit"><span class="swatch orbit"></span>Orbit, the original</button>
+    </div>
+    <p class="hint">Orbit is the original design this chat started from. Orbit at night looks exactly like the first version. These choices are saved on this device only.</p>
+  </section>
+
+  <section class="dsec">
+    <p class="sh">Your account</p>
+    <dl class="acct" id="acct">
+      <dt>Status</dt><dd>Connecting...</dd>
+    </dl>
+    <div class="dactions">
+      <button class="mini" id="acctName" type="button">Change name</button>
+    </div>
+  </section>
+
+  <section class="dsec">
+    <p class="sh">About</p>
+    <details>
+      <summary>What is this</summary>
+      <div class="body">
+        <p>Cat Command Chat is a small private chat room for a few people. Everyone who opens this page lands in the same room and sees the same messages.</p>
+        <p>It started as a two person chat built by a friend. Its look lives on as the Orbit skin.</p>
+      </div>
+    </details>
+    <details>
+      <summary>How it works</summary>
+      <div class="body">
+        <p>Messages are saved to a database and show up for everyone instantly. The dot at the top shows who else has the page open, and you can see when someone is typing.</p>
+        <p>There is no sign up. The first time you open the page, it quietly makes a guest account for this browser. No email, no password, and nothing linked to other services unless the Your account section says so.</p>
+        <p>That guest account lives in this browser. Clearing site data, private browsing, or switching browsers or phones makes you a new person in the chat. Set a name so others know it's you.</p>
+        <p>Tap the paperclip to share a file up to 50 MB. Pictures show in the chat, other files download with a tap. Only people in this chat can open them. Web addresses you type become tappable links.</p>
+        <p>The last 500 messages are shown.</p>
+      </div>
+    </details>
+  </section>
+</aside>
+
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
@@ -180,18 +287,47 @@ const $ = s => document.querySelector(s);
 const lane = $("#lane"), text = $("#text"), sendBtn = $("#sendBtn"), note = $("#note");
 let sb = null, chan = null, myId = null, msgs = [], names = {}, seen = new Set(), ready = false;
 
-/* Skins */
-function applySkin(name){
-  document.documentElement.dataset.skin = name;
-  document.querySelectorAll(".skin").forEach(b => b.setAttribute("aria-pressed", b.dataset.pick === name ? "true" : "false"));
-  try{ localStorage.setItem("katSkin", name); }catch(e){}
+/* Menu, skins, day and night */
+const root = document.documentElement;
+function store(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+function paintPicks(){
+  document.querySelectorAll(".skin").forEach(b => b.setAttribute("aria-pressed", b.dataset.pick === root.dataset.skin ? "true" : "false"));
+  document.querySelectorAll("[data-mode-pick]").forEach(b => b.setAttribute("aria-pressed", b.dataset.modePick === root.dataset.mode ? "true" : "false"));
 }
-applySkin(document.documentElement.dataset.skin || "daylight");
-$("#menuBtn").addEventListener("click", () => {
-  const bar = $("#skinBar"); bar.hidden = !bar.hidden;
-  $("#menuBtn").setAttribute("aria-expanded", bar.hidden ? "false" : "true");
-});
+function applySkin(name){ root.dataset.skin = name; store("katSkin", name); paintPicks(); }
+function applyMode(mode){ root.dataset.mode = mode; store("katMode", mode); paintPicks(); }
+paintPicks();
 document.querySelectorAll(".skin").forEach(b => b.addEventListener("click", () => applySkin(b.dataset.pick)));
+document.querySelectorAll("[data-mode-pick]").forEach(b => b.addEventListener("click", () => applyMode(b.dataset.modePick)));
+function openMenu(){ $("#drawer").hidden = false; $("#scrim").hidden = false; $("#menuBtn").setAttribute("aria-expanded", "true"); $("#closeBtn").focus(); }
+function closeMenu(){ $("#drawer").hidden = true; $("#scrim").hidden = true; $("#menuBtn").setAttribute("aria-expanded", "false"); }
+$("#menuBtn").addEventListener("click", openMenu);
+$("#closeBtn").addEventListener("click", closeMenu);
+$("#scrim").addEventListener("click", closeMenu);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#drawer").hidden) closeMenu(); });
+
+/* Account panel */
+let me = null;
+const PROVIDER_LABELS = { email:"Email", phone:"Phone", github:"GitHub", apple:"Apple", azure:"Microsoft", discord:"Discord", facebook:"Facebook", gitlab:"GitLab", slack_oidc:"Slack", spotify:"Spotify", twitter:"X", zoom:"Zoom" };
+function renderAccount(){
+  const dl = $("#acct"); dl.textContent = "";
+  const row = (k, v) => { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); if (typeof v === "string") dd.textContent = v; else dd.append(v); dl.append(dt, dd); return dd; };
+  if (!me){ row("Status", "Not connected"); return; }
+  const st = document.createElement("span"); st.className = "ok"; const d = document.createElement("span"); d.className = "dot"; st.append(d, "Signed in");
+  row("Status", st);
+  row("Name", (names[myId] && names[myId].trim()) || "Not set yet");
+  const linked = (me.identities || []).map(i => i.provider).filter(p => p && p !== "anonymous");
+  row("Type", me.is_anonymous ? "Guest account for this browser" : "Full account");
+  row("Linked to", linked.length ? linked.map(p => PROVIDER_LABELS[p] || p).join(", ") : "Nothing. Not linked to any email or outside account.");
+  row("Email", me.email || "None");
+  if (me.created_at) row("Created", new Date(me.created_at).toLocaleString([], { dateStyle:"medium", timeStyle:"short" }));
+  const idWrap = document.createElement("span");
+  const btn = document.createElement("button"); btn.type = "button"; btn.className = "mini"; btn.textContent = "Copy";
+  btn.addEventListener("click", async () => { try{ await navigator.clipboard.writeText(myId); btn.textContent = "Copied"; }catch(e){ btn.textContent = "Can't copy"; } setTimeout(() => btn.textContent = "Copy", 1500); });
+  idWrap.append(myId.slice(0, 8) + "...", btn);
+  row("Account ID", idWrap);
+}
+$("#acctName").addEventListener("click", () => { closeMenu(); const bar = $("#nameBar"); bar.hidden = false; $("#nameInput").value = names[myId] || ""; $("#nameInput").focus(); });
 
 function showNote(t){ note.textContent = t; note.hidden = !t; }
 function fmtTime(ms){ return new Date(ms).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
@@ -354,7 +490,7 @@ $("#nameSave").addEventListener("click", async () => {
   if (error){ showNote("Couldn't save your name."); return; }
   names[myId] = v; $("#nameBar").hidden = true; refreshNameBtn(); render();
 });
-function refreshNameBtn(){ $("#nameBtn").textContent = names[myId] ? "You: " + names[myId] : "Set your name"; }
+function refreshNameBtn(){ $("#nameBtn").textContent = names[myId] ? "You: " + names[myId] : "Set your name"; if (me) renderAccount(); }
 
 function onPresence(){
   const state = chan.presenceState();
@@ -374,9 +510,11 @@ async function start(){
       session = r.data.session;
     }
     myId = session.user.id;
+    me = session.user;
+    try{ const u = await sb.auth.getUser(); if (u.data && u.data.user) me = u.data.user; }catch(e){}
   } catch (e) {
     $("#onlineText").textContent = "Offline";
-    showNote("Couldn't connect to the chat server.");
+    showNote("Couldn't connect to the chat server."); renderAccount();
     text.disabled = true; render(); return;
   }
 
@@ -386,7 +524,7 @@ async function start(){
   ]);
   if (n.data) n.data.forEach(r => { names[r.id] = r.name || ""; });
   if (m.data){ msgs = m.data.map(toMsg).reverse(); msgs.forEach(x => seen.add(x.id)); }
-  refreshNameBtn(); $("#nameBtn").hidden = false;
+  refreshNameBtn(); $("#nameBtn").hidden = false; renderAccount();
   render(); lane.scrollTop = lane.scrollHeight;
 
   chan = sb.channel("cat-room", { config: { presence: { key: myId } } })

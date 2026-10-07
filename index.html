@@ -278,6 +278,14 @@ select{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);
 .sheet .hint2{color:var(--muted);font-size:.82rem;margin:0 0 10px}
 .searchrow{display:flex;gap:8px;margin-top:10px}
 .searchrow input{flex:1;min-width:0;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg)}
+.ap{display:flex;align-items:center;gap:10px;width:min(280px,64vw);padding:2px 0}
+.apbtn{width:38px;height:38px;border-radius:50%;border:none;flex:none;cursor:pointer;display:grid;place-items:center;color:inherit;background:color-mix(in srgb, currentColor 18%, transparent);padding:0}
+.apbtn svg{width:18px;height:18px;fill:currentColor}
+.apbar{flex:1;height:26px;display:flex;align-items:center;cursor:pointer;touch-action:none}
+.aptrack{width:100%;height:6px;border-radius:3px;background:color-mix(in srgb, currentColor 25%, transparent);overflow:hidden}
+.apfill{height:100%;width:0;background:currentColor;border-radius:3px}
+.aptime{font-size:.8rem;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:3.2em;text-align:right;font-weight:700}
+.embed .ap{width:100%;padding:8px 12px;color:var(--fg)}
 .admin{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 .brand{flex:1}
@@ -420,7 +428,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1007o";
+const BUILD = "kat-1007p";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -1045,10 +1053,57 @@ function embedFor(url){
     box.append(f); return box;
   }
   const path = url.split(/[?#]/)[0].toLowerCase();
-  if (/\.(mp3|m4a|ogg|oga|wav|aac|flac|opus)$/.test(path)){ const box = el("div", "embed"); const a = document.createElement("audio"); a.controls = true; a.preload = "none"; a.src = url; a.className = "media"; box.append(a); return box; }
+  if (/\.(mp3|m4a|ogg|oga|wav|aac|flac|opus)$/.test(path)){ const box = el("div", "embed"); box.append(audioPlayer(a => { a.src = url; }, 0)); return box; }
   if (/\.(mp4|webm|mov|m4v)$/.test(path)){ const box = el("div", "embed"); const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.src = url; v.className = "media"; box.append(v); return box; }
   if (/\.(png|jpe?g|gif|webp|avif)$/.test(path)){ const box = el("div", "embed"); const i = document.createElement("img"); i.src = url; i.alt = ""; i.loading = "lazy"; box.append(i); return box; }
   return null;
+}
+
+/* Audio player that always shows length and real progress */
+const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+function fmtDur(s){ s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+function voiceSecs(name){ const m = /voice-note-(\d+)s/.exec(name || ""); return m ? Number(m[1]) : 0; }
+function audioPlayer(setSrc, knownSec){
+  const box = el("div", "ap att");
+  const a = document.createElement("audio"); a.preload = "metadata";
+  const play = btn("apbtn"); play.innerHTML = PLAY_SVG; play.setAttribute("aria-label", "Play");
+  const bar = el("div", "apbar"); const track = el("div", "aptrack"); const fill = el("div", "apfill"); track.append(fill); bar.append(track);
+  const time = el("span", "aptime");
+  let dur = knownSec || 0, fixing = false;
+  const paint = () => {
+    const c = a.currentTime || 0;
+    fill.style.width = (dur ? Math.min(100, c / dur * 100) : 0) + "%";
+    time.textContent = (a.paused && c < 0.05) ? (dur ? fmtDur(dur) : "-:--") : fmtDur(c) + (dur ? " / " + fmtDur(dur) : "");
+    play.innerHTML = a.paused ? PLAY_SVG : PAUSE_SVG; play.setAttribute("aria-label", a.paused ? "Play" : "Pause");
+  };
+  const takeDur = () => { if (isFinite(a.duration) && a.duration > 0 && !fixing){ dur = a.duration; paint(); return true; } return false; };
+  a.addEventListener("loadedmetadata", () => {
+    if (takeDur()) return;
+    fixing = true;
+    const done = () => { a.removeEventListener("durationchange", done); fixing = false; if (isFinite(a.duration) && a.duration > 0) dur = a.duration; a.currentTime = 0; paint(); };
+    a.addEventListener("durationchange", done);
+    a.currentTime = 1e7;
+  });
+  a.addEventListener("durationchange", takeDur);
+  a.addEventListener("timeupdate", () => { if (!fixing) paint(); });
+  a.addEventListener("play", () => { document.querySelectorAll("audio").forEach(o => { if (o !== a) o.pause(); }); paint(); });
+  a.addEventListener("pause", paint);
+  a.addEventListener("ended", () => { a.currentTime = 0; paint(); });
+  play.addEventListener("click", ev => { ev.stopPropagation(); if (!a.src) return; if (a.paused) a.play().catch(() => {}); else a.pause(); });
+  const seek = ev => {
+    if (!dur) return;
+    const r = track.getBoundingClientRect();
+    const x = Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1);
+    a.currentTime = x * dur; paint();
+  };
+  bar.addEventListener("pointerdown", ev => { ev.stopPropagation(); seek(ev); bar.setPointerCapture(ev.pointerId); });
+  bar.addEventListener("pointermove", ev => { if (bar.hasPointerCapture(ev.pointerId)) seek(ev); });
+  bar.addEventListener("click", ev => ev.stopPropagation());
+  setSrc(a);
+  box.append(play, bar, time, a);
+  paint();
+  return box;
 }
 
 /* Files */
@@ -1067,9 +1122,7 @@ function fileEl(m){
     const img = document.createElement("img"); img.alt = m.fname; img.loading = "lazy";
     setSrc(img, u => { a.href = u; }); a.append(img); return a;
   }
-  if (m.ftype.startsWith("audio/")){
-    const a = document.createElement("audio"); a.controls = true; a.preload = "none"; a.className = "media att"; setSrc(a); return a;
-  }
+  if (m.ftype.startsWith("audio/")) return audioPlayer(a => setSrc(a), voiceSecs(m.fname));
   if (m.ftype.startsWith("video/")){
     const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.className = "media att"; setSrc(v); return v;
   }
@@ -1134,7 +1187,8 @@ async function startRecording(){
     if (recCancel || !recChunks.length) return;
     const mt = recorder.mimeType || "audio/webm";
     const ext = mt.includes("mp4") ? "m4a" : mt.includes("ogg") ? "ogg" : "webm";
-    const file = new File(recChunks, "voice-note-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + "." + ext, { type: mt.split(";")[0] });
+    const secs = Math.max(1, Math.round((Date.now() - recStart) / 1000));
+    const file = new File(recChunks, "voice-note-" + secs + "s-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + "." + ext, { type: mt.split(";")[0] });
     sendFiles([file]);
   };
   recorder.start(); recording = true; recStart = Date.now();
@@ -1177,7 +1231,7 @@ function bubbleEl(m, flags){
   }
   if (m.text){ const t = el("div", "txt"); renderText(t, m.text, flags); b.append(t); }
   if (m.path) b.append(fileEl(m));
-  b.addEventListener("click", e => { if (e.target.closest("a,button,audio,video")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
+  b.addEventListener("click", e => { if (e.target.closest("a,button,audio,video,.ap")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
   return b;
 }
 function setPart(wrap, key, node, after){

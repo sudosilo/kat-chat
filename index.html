@@ -99,6 +99,18 @@ textarea::placeholder{color:var(--muted)}
 .send:hover:not(:disabled){transform:translateY(-1px)}
 .send:disabled{opacity:.4;cursor:default;box-shadow:none}
 .note{font-size:.82rem;color:var(--muted);padding-block:6px;margin:0}
+.bubble a{color:inherit;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.bubble .txt + .att,.bubble .att + .txt{margin-top:8px}
+.thumb{display:block;max-width:240px;border-radius:12px;overflow:hidden;background:var(--line);min-height:60px}
+.thumb img{display:block;width:100%;height:auto}
+.filecard{font:inherit;display:flex;align-items:center;gap:10px;text-align:left;background:transparent;border:1px solid currentColor;border-color:color-mix(in srgb, currentColor 30%, transparent);color:inherit;border-radius:12px;padding:8px 12px;cursor:pointer;max-width:260px}
+.filecard svg{width:22px;height:22px;flex:none}
+.filecard .fn{font-weight:700;overflow-wrap:anywhere;display:block}
+.filecard .fs{font-size:.75rem;opacity:.75;display:block}
+.attach{width:44px;height:44px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);cursor:pointer;padding:0}
+.attach svg{width:20px;height:20px}
+.attach:disabled{opacity:.4;cursor:default}
+.app.dropping #lane{outline:2px dashed var(--orange);outline-offset:-6px;border-radius:16px}
 @media (prefers-reduced-motion:no-preference){.msg.new{animation:pop .22s ease-out}@keyframes pop{from{transform:translateY(6px) scale(.97);opacity:.3}}}
 </style>
 </head>
@@ -150,6 +162,10 @@ textarea::placeholder{color:var(--muted)}
   <div class="typing" id="typing"></div>
   <p class="note" id="note" hidden></p>
   <form id="form" autocomplete="off">
+    <button class="attach" id="attachBtn" type="button" aria-label="Share a file" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-2.8-2.8l7.8-7.8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <input type="file" id="fileInput" multiple hidden>
     <textarea id="text" rows="1" placeholder="Transmit a message" aria-label="Message"></textarea>
     <button class="send" id="sendBtn" type="submit" disabled>Launch</button>
   </form>
@@ -181,7 +197,89 @@ function showNote(t){ note.textContent = t; note.hidden = !t; }
 function fmtTime(ms){ return new Date(ms).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
 function fmtDay(ms){ return new Date(ms).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"}); }
 function nameOf(id){ return (names[id] && names[id].trim()) || "Someone"; }
-function toMsg(r){ return {id:r.id, from:r.sender, text:r.body, at:new Date(r.created_at).getTime()}; }
+function toMsg(r){ return {id:r.id, from:r.sender, text:r.body || "", at:new Date(r.created_at).getTime(), path:r.file_path || "", fname:r.file_name || "", fsize:Number(r.file_size) || 0, ftype:r.file_type || ""}; }
+
+/* Links */
+function linkify(el, str){
+  const re = /\b((?:https?:\/\/|www\.)[^\s<>"]+)/gi;
+  let last = 0, m;
+  while ((m = re.exec(str))){
+    let url = m[1];
+    const trail = url.match(/[).,!?;:'\]]+$/);
+    if (trail) url = url.slice(0, -trail[0].length);
+    el.append(str.slice(last, m.index));
+    const a = document.createElement("a");
+    a.href = (/^www\./i.test(url) ? "https://" : "") + url;
+    a.textContent = url; a.target = "_blank"; a.rel = "noopener noreferrer nofollow";
+    el.append(a);
+    last = m.index + url.length; re.lastIndex = last;
+  }
+  el.append(str.slice(last));
+}
+
+/* Files */
+const BUCKET = "chat-files";
+const MAX_BYTES = 50 * 1024 * 1024;
+const urlCache = {};
+function cachedUrl(path){ const c = urlCache[path]; return c && c.exp > Date.now() ? c.url : null; }
+async function signedUrl(path){
+  const hit = cachedUrl(path); if (hit) return hit;
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+  if (error) throw error;
+  urlCache[path] = { url: data.signedUrl, exp: Date.now() + 3000000 };
+  return data.signedUrl;
+}
+function fmtSize(n){ return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : n >= 1024 ? Math.round(n / 1024) + " KB" : n + " B"; }
+function fileEl(m){
+  if (m.ftype.startsWith("image/")){
+    const a = document.createElement("a"); a.className = "thumb att"; a.target = "_blank"; a.rel = "noopener";
+    const img = document.createElement("img"); img.alt = m.fname; img.loading = "lazy";
+    const hit = cachedUrl(m.path);
+    if (hit){ img.src = hit; a.href = hit; }
+    else signedUrl(m.path).then(u => { img.src = u; a.href = u; }).catch(() => { img.alt = "Image unavailable"; });
+    a.append(img); return a;
+  }
+  const b = document.createElement("button"); b.type = "button"; b.className = "filecard att";
+  b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z M14 3v5h5 M12 11v6 M9 14l3 3 3-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const info = document.createElement("span");
+  const fn = document.createElement("span"); fn.className = "fn"; fn.textContent = m.fname || "File";
+  const fs = document.createElement("span"); fs.className = "fs"; fs.textContent = fmtSize(m.fsize) + ", tap to download";
+  info.append(fn, fs); b.append(info);
+  b.addEventListener("click", async () => {
+    fs.textContent = "Getting file...";
+    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(m.path, 300, { download: m.fname || true });
+    fs.textContent = fmtSize(m.fsize) + ", tap to download";
+    if (error){ showNote("Couldn't get that file. Try again."); return; }
+    location.assign(data.signedUrl);
+  });
+  return b;
+}
+
+let uploading = false;
+async function sendFiles(list){
+  if (!ready || uploading) return;
+  const files = [...list]; if (!files.length) return;
+  uploading = true; $("#attachBtn").disabled = true;
+  for (const file of files){
+    if (file.size > MAX_BYTES){ showNote(file.name + " is over 50 MB and wasn't sent."); continue; }
+    showNote("Uploading " + file.name + "...");
+    const safe = (file.name.replace(/[^\w.\-]+/g, "_").slice(-80)) || "file";
+    const path = myId + "/" + Date.now() + "-" + safe;
+    const up = await sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream" });
+    if (up.error){ showNote("Upload of " + file.name + " failed. Try again."); continue; }
+    const { data, error } = await sb.from("chat_messages").insert({ body: "", file_path: path, file_name: file.name.slice(0, 200), file_size: file.size, file_type: file.type || "" }).select().single();
+    if (error){ showNote(file.name + " uploaded but the message failed. Try again."); continue; }
+    addMsg(toMsg(data)); showNote("");
+  }
+  uploading = false; $("#attachBtn").disabled = !ready;
+}
+$("#attachBtn").addEventListener("click", () => $("#fileInput").click());
+$("#fileInput").addEventListener("change", e => { sendFiles(e.target.files); e.target.value = ""; });
+const appEl = $(".app");
+appEl.addEventListener("dragover", e => { if ([...e.dataTransfer.types].includes("Files")){ e.preventDefault(); appEl.classList.add("dropping"); } });
+appEl.addEventListener("dragleave", e => { if (!appEl.contains(e.relatedTarget)) appEl.classList.remove("dropping"); });
+appEl.addEventListener("drop", e => { e.preventDefault(); appEl.classList.remove("dropping"); if (e.dataTransfer.files.length) sendFiles(e.dataTransfer.files); });
+text.addEventListener("paste", e => { const f = e.clipboardData && e.clipboardData.files; if (f && f.length){ e.preventDefault(); sendFiles(f); } });
 
 function addMsg(m){
   if (msgs.some(x => x.id === m.id)) return;
@@ -209,7 +307,9 @@ function render(){
     wrap.className = "msg" + (mine ? " me" : "") + (m.from === lastFrom && m.at - lastAt < 300000 ? " cont" : "") + (seen.has(m.id) ? "" : " new");
     const meta = document.createElement("div"); meta.className = "meta";
     meta.textContent = (mine ? "You" : nameOf(m.from)) + " · " + fmtTime(m.at);
-    const b = document.createElement("div"); b.className = "bubble"; b.textContent = m.text; b.title = fmtTime(m.at);
+    const b = document.createElement("div"); b.className = "bubble"; b.title = fmtTime(m.at);
+    if (m.text){ const t = document.createElement("div"); t.className = "txt"; linkify(t, m.text); b.append(t); }
+    if (m.path) b.append(fileEl(m));
     wrap.append(meta, b); lane.append(wrap);
     seen.add(m.id); lastFrom = m.from; lastAt = m.at;
   }
@@ -294,7 +394,7 @@ async function start(){
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_names" }, p => { if (p.new && p.new.id){ names[p.new.id] = p.new.name || ""; refreshNameBtn(); render(); onPresence(); } })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {
-      if (status === "SUBSCRIBED"){ ready = true; updateSend(); await chan.track({ typing: false }); }
+      if (status === "SUBSCRIBED"){ ready = true; updateSend(); $("#attachBtn").disabled = uploading; await chan.track({ typing: false }); }
       else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT"){ showNote("Lost connection to the chat. Reload the page to reconnect."); }
     });
 }

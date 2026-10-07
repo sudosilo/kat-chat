@@ -85,6 +85,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
@@ -170,6 +171,13 @@ textarea::placeholder{color:var(--muted)}
 .attach{width:44px;height:44px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);cursor:pointer;padding:0}
 .attach svg{width:20px;height:20px}
 .attach:disabled{opacity:.4;cursor:default}
+.bubble{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.reacts{display:flex;flex-wrap:wrap;gap:4px;margin:4px 6px 0}
+.rchip{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:999px;padding:1px 8px;cursor:pointer;line-height:1.6}
+.rchip.mine{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 18%, var(--panel))}
+.picker{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 6px;margin-top:6px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.picker button{font-size:1.3rem;line-height:1;background:none;border:none;padding:5px;cursor:pointer;border-radius:50%}
+.picker button.on{background:color-mix(in srgb, var(--orange) 25%, transparent)}
 .app.dropping #lane{outline:2px dashed var(--orange);outline-offset:-6px;border-radius:16px}
 @media (prefers-reduced-motion:no-preference){.msg.new{animation:pop .22s ease-out}@keyframes pop{from{transform:translateY(6px) scale(.97);opacity:.3}}}
 </style>
@@ -247,6 +255,16 @@ textarea::placeholder{color:var(--muted)}
   </section>
 
   <section class="dsec">
+    <p class="sh">Sound</p>
+    <div class="seg" role="group" aria-label="New message sound">
+      <button type="button" data-sound="ding">Ding</button>
+      <button type="button" data-sound="meow">Meow</button>
+      <button type="button" data-sound="off">Off</button>
+    </div>
+    <p class="hint">Plays when someone else sends a message. Tap a sound to hear it. Saved on this device only.</p>
+  </section>
+
+  <section class="dsec">
     <p class="sh">Your account</p>
     <dl class="acct" id="acct">
       <dt>Status</dt><dd>Connecting...</dd>
@@ -272,6 +290,7 @@ textarea::placeholder{color:var(--muted)}
         <p>There is no sign up. The first time you open the page, it quietly makes a guest account for this browser. No email, no password, and nothing linked to other services unless the Your account section says so.</p>
         <p>That guest account lives in this browser. Clearing site data, private browsing, or switching browsers or phones makes you a new person in the chat. Set a name so others know it's you.</p>
         <p>Tap the paperclip to share a file up to 50 MB. Pictures show in the chat, other files download with a tap. Only people in this chat can open them. Web addresses you type become tappable links.</p>
+        <p>Tap any message to react with an emoji. Tap a reaction to add or remove yours. Pick a ding or a meow in Sound to hear new messages.</p>
         <p>The last 500 messages are shown.</p>
       </div>
     </details>
@@ -334,6 +353,127 @@ function fmtTime(ms){ return new Date(ms).toLocaleTimeString([], {hour:"numeric"
 function fmtDay(ms){ return new Date(ms).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"}); }
 function nameOf(id){ return (names[id] && names[id].trim()) || "Someone"; }
 function toMsg(r){ return {id:r.id, from:r.sender, text:r.body || "", at:new Date(r.created_at).getTime(), path:r.file_path || "", fname:r.file_name || "", fsize:Number(r.file_size) || 0, ftype:r.file_type || ""}; }
+
+/* Reactions */
+const EMOJIS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F525}", "\u{1F431}"];
+const reacts = new Map();
+let pickerFor = null;
+function addReact(r){
+  if (!r || r.message_id == null) return;
+  const list = reacts.get(r.message_id) || [];
+  if (!list.some(x => x.user_id === r.user_id && x.emoji === r.emoji)) list.push({ user_id: r.user_id, emoji: r.emoji });
+  reacts.set(r.message_id, list);
+}
+function removeReact(r){
+  if (!r || r.message_id == null) return;
+  const list = (reacts.get(r.message_id) || []).filter(x => !(x.user_id === r.user_id && x.emoji === r.emoji));
+  reacts.set(r.message_id, list);
+}
+async function toggleReact(id, emoji){
+  if (!ready) return;
+  const mine = (reacts.get(id) || []).some(x => x.user_id === myId && x.emoji === emoji);
+  const row = { message_id: id, user_id: myId, emoji };
+  if (mine){
+    removeReact(row); render();
+    const { error } = await sb.from("chat_reactions").delete().match(row);
+    if (error){ addReact(row); render(); showNote("Couldn't remove that reaction."); }
+  } else {
+    addReact(row); render();
+    const { error } = await sb.from("chat_reactions").insert({ message_id: id, emoji });
+    if (error){ removeReact(row); render(); showNote("Couldn't add that reaction."); }
+  }
+}
+function reactsEl(m){
+  const list = reacts.get(m.id) || [];
+  if (!list.length) return null;
+  const groups = new Map();
+  for (const r of list){ const g = groups.get(r.emoji) || []; g.push(r.user_id); groups.set(r.emoji, g); }
+  const box = document.createElement("div"); box.className = "reacts";
+  for (const [emoji, users] of groups){
+    const c = document.createElement("button"); c.type = "button";
+    c.className = "rchip" + (users.includes(myId) ? " mine" : "");
+    c.textContent = emoji + " " + users.length;
+    c.title = users.map(u => u === myId ? "You" : nameOf(u)).join(", ");
+    c.addEventListener("click", () => toggleReact(m.id, emoji));
+    box.append(c);
+  }
+  return box;
+}
+function pickerEl(m){
+  const p = document.createElement("div"); p.className = "picker";
+  const mineSet = new Set((reacts.get(m.id) || []).filter(x => x.user_id === myId).map(x => x.emoji));
+  for (const e of EMOJIS){
+    const b = document.createElement("button"); b.type = "button"; b.textContent = e;
+    if (mineSet.has(e)) b.className = "on";
+    b.setAttribute("aria-label", "React " + e);
+    b.addEventListener("click", ev => { ev.stopPropagation(); pickerFor = null; toggleReact(m.id, e); });
+    p.append(b);
+  }
+  return p;
+}
+lane.addEventListener("click", e => { if (pickerFor !== null && !e.target.closest(".bubble,.picker")){ pickerFor = null; render(); } });
+
+/* Sounds */
+let soundMode = "off", actx = null;
+try{
+  soundMode = localStorage.getItem("katSound") || (localStorage.getItem("katDing") === "on" ? "ding" : "off");
+}catch(e){}
+function ensureAudio(){
+  if (!actx){ const C = window.AudioContext || window.webkitAudioContext; if (C) actx = new C(); }
+  if (actx && actx.state === "suspended") actx.resume().catch(() => {});
+}
+function ding(){
+  if (!actx) return;
+  const t0 = actx.currentTime;
+  [[880, .18, .9], [1320, .07, .5]].forEach(([f, v, len]) => {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = "sine"; o.frequency.value = f;
+    g.gain.setValueAtTime(.0001, t0);
+    g.gain.exponentialRampToValueAtTime(v, t0 + .01);
+    g.gain.exponentialRampToValueAtTime(.0001, t0 + len);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + len + .05);
+  });
+}
+function meow(){
+  if (!actx) return;
+  const t0 = actx.currentTime, len = .7;
+  const o = actx.createOscillator(); o.type = "sawtooth";
+  o.frequency.setValueAtTime(420, t0);
+  o.frequency.linearRampToValueAtTime(720, t0 + .16);
+  o.frequency.linearRampToValueAtTime(640, t0 + .38);
+  o.frequency.exponentialRampToValueAtTime(360, t0 + len);
+  const lfo = actx.createOscillator(), lfoGain = actx.createGain();
+  lfo.frequency.value = 7; lfoGain.gain.value = 12;
+  lfo.connect(lfoGain); lfoGain.connect(o.frequency);
+  const f1 = actx.createBiquadFilter(); f1.type = "bandpass"; f1.Q.value = 4;
+  f1.frequency.setValueAtTime(700, t0);
+  f1.frequency.linearRampToValueAtTime(2300, t0 + .18);
+  f1.frequency.linearRampToValueAtTime(1500, t0 + .42);
+  f1.frequency.linearRampToValueAtTime(800, t0 + len);
+  const f2 = actx.createBiquadFilter(); f2.type = "bandpass"; f2.Q.value = 6;
+  f2.frequency.setValueAtTime(1800, t0);
+  f2.frequency.linearRampToValueAtTime(3200, t0 + .2);
+  f2.frequency.linearRampToValueAtTime(2000, t0 + len);
+  const g = actx.createGain(), g2 = actx.createGain();
+  g2.gain.value = .35;
+  g.gain.setValueAtTime(.0001, t0);
+  g.gain.exponentialRampToValueAtTime(.5, t0 + .06);
+  g.gain.setValueAtTime(.5, t0 + .3);
+  g.gain.exponentialRampToValueAtTime(.0001, t0 + len);
+  const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 4000;
+  o.connect(f1); o.connect(f2); f2.connect(g2);
+  f1.connect(g); g2.connect(g); g.connect(lp); lp.connect(actx.destination);
+  o.start(t0); lfo.start(t0); o.stop(t0 + len + .05); lfo.stop(t0 + len + .05);
+}
+function playSound(){ if (soundMode === "ding") ding(); else if (soundMode === "meow") meow(); }
+function paintSound(){ document.querySelectorAll("[data-sound]").forEach(b => b.setAttribute("aria-pressed", b.dataset.sound === soundMode ? "true" : "false")); }
+document.querySelectorAll("[data-sound]").forEach(b => b.addEventListener("click", () => {
+  soundMode = b.dataset.sound; store("katSound", soundMode); paintSound();
+  if (soundMode !== "off"){ ensureAudio(); playSound(); }
+}));
+document.addEventListener("pointerdown", () => { if (soundMode !== "off") ensureAudio(); }, { passive: true });
+paintSound();
 
 /* Links */
 function linkify(el, str){
@@ -446,7 +586,11 @@ function render(){
     const b = document.createElement("div"); b.className = "bubble"; b.title = fmtTime(m.at);
     if (m.text){ const t = document.createElement("div"); t.className = "txt"; linkify(t, m.text); b.append(t); }
     if (m.path) b.append(fileEl(m));
-    wrap.append(meta, b); lane.append(wrap);
+    b.addEventListener("click", e => { if (e.target.closest("a,button")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
+    wrap.append(meta, b);
+    if (pickerFor === m.id) wrap.append(pickerEl(m));
+    const rx = reactsEl(m); if (rx) wrap.append(rx);
+    lane.append(wrap);
     seen.add(m.id); lastFrom = m.from; lastAt = m.at;
   }
   if (atBottom || msgs.at(-1)?.from === myId) lane.scrollTop = lane.scrollHeight;
@@ -524,11 +668,17 @@ async function start(){
   ]);
   if (n.data) n.data.forEach(r => { names[r.id] = r.name || ""; });
   if (m.data){ msgs = m.data.map(toMsg).reverse(); msgs.forEach(x => seen.add(x.id)); }
+  if (msgs.length){
+    const r = await sb.from("chat_reactions").select("message_id,user_id,emoji").gte("message_id", msgs[0].id).limit(5000);
+    if (r.data) r.data.forEach(addReact);
+  }
   refreshNameBtn(); $("#nameBtn").hidden = false; renderAccount();
   render(); lane.scrollTop = lane.scrollHeight;
 
   chan = sb.channel("cat-room", { config: { presence: { key: myId } } })
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => addMsg(toMsg(p.new)))
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => { const nm = toMsg(p.new); const fresh = !msgs.some(x => x.id === nm.id); addMsg(nm); if (fresh && nm.from !== myId) playSound(); })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_reactions" }, p => { addReact(p.new); render(); })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "chat_reactions" }, p => { removeReact(p.old); render(); })
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_names" }, p => { if (p.new && p.new.id){ names[p.new.id] = p.new.name || ""; refreshNameBtn(); render(); onPresence(); } })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {

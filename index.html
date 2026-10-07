@@ -226,6 +226,7 @@ details .body p:last-child{margin-bottom:0}
 .sw.none{background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);color:var(--muted);font-size:.62rem;font-family:inherit}
 .prow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sheet .send{width:100%}
+.update{flex:none;margin:6px 0 0;font:inherit;font-weight:700;background:var(--orange);color:var(--mine-fg);border:none;border-radius:12px;padding:10px 14px;cursor:pointer;text-align:center}
 </style>
 </head>
 <body>
@@ -260,6 +261,7 @@ details .body p:last-child{margin-bottom:0}
   <div id="lane" aria-live="polite"></div>
   <div class="typing" id="typing"></div>
   <p class="note" id="note" hidden></p>
+  <button class="update" id="updateBtn" type="button" hidden>A new version of the chat is ready. Tap to reload.</button>
   <form class="composer" id="form" autocomplete="off" hidden>
     <button class="attach" id="attachBtn" type="button" aria-label="Share a file" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-2.8-2.8l7.8-7.8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -343,6 +345,7 @@ details .body p:last-child{margin-bottom:0}
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
 const MAX = 500;
+const BUILD = "kat-1007m";
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
 const MAX_BYTES = 50 * 1024 * 1024;
 const COLORS = ["#ff8a2b", "#ef5b5b", "#f06aa8", "#9b6bf2", "#4c8df6", "#22b5a8", "#4fbf5a", "#b5d334", "#f5c542", "#a9744f"];
@@ -875,6 +878,59 @@ function showLock(){
   lane.append(card);
 }
 
+/* Keep everyone current */
+async function refreshProfile(id){
+  const { data } = await sb.from("chat_names").select("id,name,color,avatar_path").eq("id", id).maybeSingle();
+  if (!data) return;
+  const old = profiles[id] || {};
+  setProfile(data);
+  const now = profiles[id];
+  if (old.name !== now.name || old.color !== now.color || old.avatar_path !== now.avatar_path){ loadAvatars(); renderRail(); render(); }
+}
+async function checkForUpdate(){
+  try{
+    const r = await fetch(RETURN_TO, { cache: "no-store" });
+    const html = await r.text();
+    if (html.includes("const BUILD =") && !html.includes('const BUILD = "' + BUILD + '"')) $("#updateBtn").hidden = false;
+  }catch(e){}
+}
+$("#updateBtn").addEventListener("click", () => location.reload());
+setInterval(checkForUpdate, 120000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForUpdate(); });
+
+/* Catch up on anything missed while the phone was asleep or offline */
+let catching = false;
+async function catchUp(){
+  if (!inChat || !sb || catching) return; catching = true;
+  try{
+    const lastId = msgs.length ? msgs[msgs.length - 1].id : 0;
+    const { data } = await sb.from("chat_messages").select("*").gt("id", lastId).order("id", { ascending: true }).limit(MAX);
+    if (data && data.length){
+      let fromOthers = false;
+      for (const r of data){
+        const nm = toMsg(r);
+        if (msgs.some(x => x.id === nm.id)) continue;
+        msgs.push(nm); bumpStats(nm);
+        if (nm.from !== myId){ fromOthers = true; if (!profiles[nm.from]) refreshProfile(nm.from); }
+      }
+      msgs.sort((a, b) => a.at - b.at); if (msgs.length > MAX) msgs = msgs.slice(-MAX);
+      if (fromOthers) playSound();
+    }
+    if (msgs.length){
+      const r = await sb.from("chat_reactions").select("message_id,user_id,emoji").gte("message_id", msgs[0].id).limit(5000);
+      if (r.data){ reacts.clear(); r.data.forEach(addReact); }
+    }
+    const n = await sb.from("chat_names").select("id,name,color,avatar_path");
+    if (n.data){ n.data.forEach(setProfile); loadAvatars(); }
+    render(); renderRail();
+  }catch(e){}
+  catching = false;
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) catchUp(); });
+window.addEventListener("online", catchUp);
+window.addEventListener("focus", catchUp);
+setInterval(() => { if (!document.hidden) catchUp(); }, 20000);
+
 /* Startup */
 async function enterChat(justJoined){
   inChat = true;
@@ -902,7 +958,7 @@ async function enterChat(justJoined){
   chan = sb.channel("cat-room", { config: { presence: { key: myId } } })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => {
       const nm = toMsg(p.new); const fresh = !msgs.some(x => x.id === nm.id);
-      addMsg(nm); if (fresh){ if (nm.from !== myId) playSound(); bumpStats(nm); }
+      addMsg(nm); if (fresh){ if (nm.from !== myId){ playSound(); refreshProfile(nm.from); } bumpStats(nm); }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_reactions" }, p => {
       if (msgs.some(x => x.id === p.new.message_id)){ addReact(p.new); render(); }
@@ -914,7 +970,7 @@ async function enterChat(justJoined){
     })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {
-      if (status === "SUBSCRIBED"){ ready = true; updateSend(); $("#attachBtn").disabled = uploading; await chan.track({ typing: false }); }
+      if (status === "SUBSCRIBED"){ ready = true; updateSend(); $("#attachBtn").disabled = uploading; catchUp(); await chan.track({ typing: false }); }
       else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT"){ showNote("Lost connection to the chat. Reload the page to reconnect."); }
     });
 }

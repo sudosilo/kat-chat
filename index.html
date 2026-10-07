@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cat Command Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#fbf6ee; --bg2:#ffe9d2; --panel:#ffffff; --fg:#2a1e14; --muted:#7a6a5c; --line:#ead9c6;
+  --orange:#ff8a2b; --orange-deep:#e2661a; --mine-fg:#2a1300; --theirs:#ffffff; --theirs-fg:#2a1e14;
+  --live:#2fb886; --star:#f2b27a;
+  --display:"Trebuchet MS", system-ui, sans-serif; --body:system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(2px 2px at 12% 18%, var(--star) 50%, transparent 51%),
+    radial-gradient(2px 2px at 72% 9%, var(--star) 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 88% 42%, var(--star) 50%, transparent 51%),
+    radial-gradient(2px 2px at 33% 64%, var(--star) 50%, transparent 51%),
+    radial-gradient(2px 2px at 55% 30%, var(--star) 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 6% 82%, var(--star) 50%, transparent 51%),
+    radial-gradient(ellipse at 85% 0%, var(--bg2), transparent 60%)}
+.app{height:100%;display:flex;flex-direction:column;max-width:760px;margin:0 auto;padding-inline:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:14px 12px;border-bottom:1px dashed var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.cat{width:58px;height:58px;flex:none}
+@media (prefers-reduced-motion:no-preference){.cat{animation:float 5s ease-in-out infinite}@keyframes float{50%{transform:translateY(-4px) rotate(-3deg)}}}
+h1{font-family:var(--display);font-weight:700;font-size:1.45rem;margin:0;line-height:1.1}
+h1 span{color:var(--orange-deep)}
+.sub{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.who{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted);flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--live);display:inline-block}
+.namebtn{font:inherit;font-size:.85rem;background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:4px 12px;cursor:pointer}
+.namebtn:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.namebar{display:flex;gap:8px;padding-block:10px;border-bottom:1px dashed var(--line);flex-wrap:wrap;align-items:center}
+.namebar label{font-size:.85rem;color:var(--muted)}
+.namebar input{flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--fg)}
+#lane{flex:1;overflow-y:auto;padding-block:16px;display:flex;flex-direction:column;gap:4px;min-height:0}
+.empty{margin:auto;text-align:center;color:var(--muted);max-width:34ch}
+.empty b{display:block;font-family:var(--display);color:var(--fg);font-size:1.15rem;margin-bottom:4px}
+.day{align-self:center;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-block:12px 6px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;background:var(--panel)}
+.msg{max-width:78%;display:flex;flex-direction:column;min-width:0}
+.msg.me{align-self:flex-end;align-items:flex-end}
+.msg .meta{font-size:.75rem;color:var(--muted);margin:8px 8px 2px}
+.bubble{padding:9px 14px;border-radius:20px;background:var(--theirs);color:var(--theirs-fg);border:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.me .bubble{background:var(--orange);color:var(--mine-fg);border-color:transparent;border-bottom-right-radius:6px;font-weight:600}
+.msg:not(.me) .bubble{border-bottom-left-radius:6px}
+.msg.cont .meta{display:none}
+.typing{min-height:1.2em;font-size:.8rem;color:var(--orange-deep);padding-inline:8px}
+form{display:flex;gap:8px;align-items:flex-end;padding-block:8px 16px;border-top:1px dashed var(--line)}
+textarea{flex:1;min-width:0;resize:none;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--fg);max-height:140px}
+textarea::placeholder{color:var(--muted)}
+.send{font-family:var(--display);font-weight:700;font-size:1rem;background:var(--orange);color:var(--mine-fg);border:none;border-radius:16px;padding:10px 18px;cursor:pointer;box-shadow:0 3px 0 var(--orange-deep)}
+.send:disabled{opacity:.4;cursor:default;box-shadow:none}
+.note{font-size:.82rem;color:var(--muted);padding-block:6px;margin:0}
+@media (prefers-reduced-motion:no-preference){.msg.new{animation:pop .22s ease-out}@keyframes pop{from{transform:translateY(6px) scale(.97);opacity:.3}}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <svg class="cat" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="29" fill="#bcd8ff" fill-opacity=".35" stroke="#8fb4e6" stroke-width="2.5"/>
+        <path d="M16 26 L18 12 L27 21 Z" fill="#ff8a2b"/><path d="M48 26 L46 12 L37 21 Z" fill="#ff8a2b"/>
+        <path d="M18.5 15 L20 23 L24.5 20.5 Z" fill="#ffc9a3"/><path d="M45.5 15 L44 23 L39.5 20.5 Z" fill="#ffc9a3"/>
+        <ellipse cx="32" cy="34" rx="17" ry="15" fill="#ff8a2b"/>
+        <path d="M28 21 q4 3 8 0" stroke="#e2661a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M16 31 h5 M16 35 h5 M43 31 h5 M43 35 h5" stroke="#e2661a" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="32" cy="40" rx="8" ry="6" fill="#ffe2cc"/>
+        <circle cx="25" cy="32" r="3" fill="#1b1430"/><circle cx="39" cy="32" r="3" fill="#1b1430"/>
+        <circle cx="26" cy="31" r="1" fill="#ffffff"/><circle cx="40" cy="31" r="1" fill="#ffffff"/>
+        <path d="M30.5 37.5 h3 l-1.5 1.8 z" fill="#d94b6a"/>
+        <path d="M29 41 q3 2.5 6 0" stroke="#1b1430" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <path d="M13 22 q4 -10 14 -14" stroke="#ffffff" stroke-opacity=".8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <rect x="20" y="56" width="24" height="6" rx="3" fill="#9aa7c7"/>
+      </svg>
+      <div>
+        <h1>Cat Command <span>Chat</span></h1>
+        <div class="sub">Orbiting with you</div>
+      </div>
+    </div>
+    <div class="who">
+      <span><span class="dot"></span> <span id="onlineText">Connecting...</span></span>
+      <button class="namebtn" id="nameBtn" type="button" hidden>Set your name</button>
+    </div>
+  </header>
+  <div class="namebar" id="nameBar" hidden>
+    <label for="nameInput">Your name in this chat</label>
+    <input id="nameInput" maxlength="30" placeholder="Your name">
+    <button class="send" id="nameSave" type="button">Save</button>
+  </div>
+  <div id="lane" aria-live="polite"></div>
+  <div class="typing" id="typing"></div>
+  <p class="note" id="note" hidden></p>
+  <form id="form" autocomplete="off">
+    <textarea id="text" rows="1" placeholder="Transmit a message" aria-label="Message"></textarea>
+    <button class="send" id="sendBtn" type="submit" disabled>Launch</button>
+  </form>
+</div>
+
+<script>
+const SB_URL = "xxxxxxxxxx";
+const SB_KEY = "xxxxxxxxxxxxxxxxxxxx";
+const MAX = 500;
+
+const $ = s => document.querySelector(s);
+const lane = $("#lane"), text = $("#text"), sendBtn = $("#sendBtn"), note = $("#note");
+let sb = null, chan = null, myId = null, msgs = [], names = {}, seen = new Set(), ready = false;
+
+function showNote(t){ note.textContent = t; note.hidden = !t; }
+function fmtTime(ms){ return new Date(ms).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
+function fmtDay(ms){ return new Date(ms).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"}); }
+function nameOf(id){ return (names[id] && names[id].trim()) || "Someone"; }
+function toMsg(r){ return {id:r.id, from:r.sender, text:r.body, at:new Date(r.created_at).getTime()}; }
+
+function addMsg(m){
+  if (msgs.some(x => x.id === m.id)) return;
+  msgs.push(m);
+  msgs.sort((a,b) => a.at - b.at);
+  if (msgs.length > MAX) msgs = msgs.slice(-MAX);
+  render();
+}
+
+function render(){
+  const atBottom = lane.scrollHeight - lane.scrollTop - lane.clientHeight < 80;
+  lane.textContent = "";
+  if (!msgs.length){
+    const e = document.createElement("div"); e.className = "empty";
+    const b = document.createElement("b"); b.textContent = "Quiet out here in orbit";
+    e.append(b, "Send the first transmission below.");
+    lane.append(e); return;
+  }
+  let lastDay = "", lastFrom = "", lastAt = 0;
+  for (const m of msgs){
+    const day = fmtDay(m.at);
+    if (day !== lastDay){ const d = document.createElement("div"); d.className = "day"; d.textContent = day; lane.append(d); lastDay = day; lastFrom = ""; }
+    const mine = m.from === myId;
+    const wrap = document.createElement("div");
+    wrap.className = "msg" + (mine ? " me" : "") + (m.from === lastFrom && m.at - lastAt < 300000 ? " cont" : "") + (seen.has(m.id) ? "" : " new");
+    const meta = document.createElement("div"); meta.className = "meta";
+    meta.textContent = (mine ? "You" : nameOf(m.from)) + " at " + fmtTime(m.at);
+    const b = document.createElement("div"); b.className = "bubble"; b.textContent = m.text;
+    wrap.append(meta, b); lane.append(wrap);
+    seen.add(m.id); lastFrom = m.from; lastAt = m.at;
+  }
+  if (atBottom || msgs.at(-1)?.from === myId) lane.scrollTop = lane.scrollHeight;
+}
+
+function updateSend(){ sendBtn.disabled = !ready || !text.value.trim(); }
+
+text.addEventListener("input", () => {
+  text.style.height = "auto"; text.style.height = Math.min(text.scrollHeight, 140) + "px";
+  updateSend(); setTyping(!!text.value.trim());
+});
+text.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); $("#form").requestSubmit(); } });
+
+$("#form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const t = text.value.trim(); if (!t || !ready) return;
+  sendBtn.disabled = true;
+  const { data, error } = await sb.from("chat_messages").insert({ body: t.slice(0, 4000) }).select().single();
+  if (error){ showNote("Message didn't send. Check your connection and try again."); }
+  else { addMsg(toMsg(data)); text.value = ""; text.style.height = "auto"; setTyping(false); showNote(""); }
+  updateSend();
+});
+
+let typingNow = false, typingTimer = null;
+function setTyping(on){
+  if (!chan) return;
+  clearTimeout(typingTimer);
+  if (on) typingTimer = setTimeout(() => setTyping(false), 4000);
+  if (on === typingNow) return;
+  typingNow = on;
+  chan.track({ typing: on }).catch(() => {});
+}
+
+$("#nameBtn").addEventListener("click", () => {
+  const bar = $("#nameBar"); bar.hidden = !bar.hidden;
+  if (!bar.hidden){ $("#nameInput").value = names[myId] || ""; $("#nameInput").focus(); }
+});
+$("#nameSave").addEventListener("click", async () => {
+  const v = $("#nameInput").value.trim().slice(0, 30);
+  const { error } = await sb.from("chat_names").upsert({ id: myId, name: v });
+  if (error){ showNote("Couldn't save your name."); return; }
+  names[myId] = v; $("#nameBar").hidden = true; refreshNameBtn(); render();
+});
+function refreshNameBtn(){ $("#nameBtn").textContent = names[myId] ? "You: " + names[myId] : "Set your name"; }
+
+function onPresence(){
+  const state = chan.presenceState();
+  const others = Object.keys(state).filter(k => k !== myId);
+  $("#onlineText").textContent = others.length ? (others.length === 1 ? "1 other person here" : others.length + " other people here") : "Only you right now";
+  const typers = others.filter(k => state[k].some(p => p.typing === true));
+  $("#typing").textContent = typers.length ? (typers.length === 1 ? nameOf(typers[0]) : "Someone") + " is typing..." : "";
+}
+
+async function start(){
+  try {
+    sb = supabase.createClient(SB_URL, SB_KEY);
+    let { data: { session } } = await sb.auth.getSession();
+    if (!session){
+      const r = await sb.auth.signInAnonymously();
+      if (r.error) throw r.error;
+      session = r.data.session;
+    }
+    myId = session.user.id;
+  } catch (e) {
+    $("#onlineText").textContent = "Offline";
+    showNote("Couldn't connect to the chat server.");
+    text.disabled = true; render(); return;
+  }
+
+  const [m, n] = await Promise.all([
+    sb.from("chat_messages").select("*").order("created_at", { ascending: false }).limit(MAX),
+    sb.from("chat_names").select("*")
+  ]);
+  if (n.data) n.data.forEach(r => { names[r.id] = r.name || ""; });
+  if (m.data){ msgs = m.data.map(toMsg).reverse(); msgs.forEach(x => seen.add(x.id)); }
+  refreshNameBtn(); $("#nameBtn").hidden = false;
+  render(); lane.scrollTop = lane.scrollHeight;
+
+  chan = sb.channel("cat-room", { config: { presence: { key: myId } } })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => addMsg(toMsg(p.new)))
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_names" }, p => { if (p.new && p.new.id){ names[p.new.id] = p.new.name || ""; refreshNameBtn(); render(); onPresence(); } })
+    .on("presence", { event: "sync" }, onPresence)
+    .subscribe(async status => {
+      if (status === "SUBSCRIBED"){ ready = true; updateSend(); await chan.track({ typing: false }); }
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT"){ showNote("Lost connection to the chat. Reload the page to reconnect."); }
+    });
+}
+start();
+</script>
+</body>
+</html>

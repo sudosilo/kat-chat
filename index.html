@@ -281,7 +281,8 @@ select{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);
 .sheet h3{font-family:var(--display);margin:0 0 4px;font-size:1.2rem}
 .sheet .hint2{color:var(--muted);font-size:.82rem;margin:0 0 10px}
 .searchrow{display:flex;gap:8px;margin-top:10px}
-.searchrow input{flex:1;min-width:0;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg)}
+.searchrow .send{width:auto;flex:none;padding:10px 16px}
+.searchrow input{flex:1;min-width:0;font-size:1rem;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg)}
 .ap{display:flex;align-items:center;gap:10px;width:min(280px,64vw);padding:2px 0}
 .apbtn{width:38px;height:38px;border-radius:50%;border:none;flex:none;cursor:pointer;display:grid;place-items:center;color:inherit;background:color-mix(in srgb, currentColor 18%, transparent);padding:0}
 .apbtn svg{width:18px;height:18px;fill:currentColor}
@@ -445,7 +446,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1007r";
+const BUILD = "kat-1007t";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";

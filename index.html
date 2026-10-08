@@ -446,7 +446,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1007t";
+const BUILD = "kat-1008a";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -958,6 +958,11 @@ function actionsEl(m){
     b.setAttribute("aria-label", "React " + e); p.append(b);
   }
   const acts = el("div", "acts");
+  if (m.path && m.ftype.startsWith("image/")) acts.append(btn("mini", "View picture", async () => {
+    const w = window.open("", "_blank");
+    try{ const u = await signedUrl(m.path); if (w) w.location = u; else location.assign(u); }
+    catch(e){ if (w) w.close(); showNote("Couldn't open that picture."); }
+  }));
   acts.append(btn("mini", "Reply", () => { pickerFor = null; startCtx("reply", m); render(); }));
   if (m.text) acts.append(btn("mini", "Copy", async () => { try{ await navigator.clipboard.writeText(m.text); }catch(e){} pickerFor = null; render(); }));
   if (m.from === myId && m.text) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
@@ -1152,9 +1157,9 @@ async function signedUrl(path){
 function fileEl(m){
   const setSrc = (node, after) => { const hit = cachedUrl(m.path); if (hit){ node.src = hit; if (after) after(hit); } else signedUrl(m.path).then(u => { node.src = u; if (after) after(u); }).catch(() => {}); };
   if (m.ftype.startsWith("image/")){
-    const a = el("a", "thumb att"); a.target = "_blank"; a.rel = "noopener";
+    const a = el("div", "thumb att");
     const img = document.createElement("img"); img.alt = m.fname; img.loading = "lazy";
-    setSrc(img, u => { a.href = u; }); a.append(img); return a;
+    setSrc(img); a.append(img); return a;
   }
   if (m.ftype.startsWith("audio/")) return audioPlayer(a => setSrc(a), voiceSecs(m.fname));
   if (m.ftype.startsWith("video/")){
@@ -1691,7 +1696,7 @@ async function enterChat(justJoined){
     })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {
-      if (status === "SUBSCRIBED"){ ready = true; updateSend(); $("#attachBtn").disabled = uploading; $("#micBtn").disabled = false; catchUp(); await chan.track({ typing: false }); }
+      if (status === "SUBSCRIBED"){ ready = true; if (/^Lost connection/.test(note.textContent)) showNote(""); updateSend(); $("#attachBtn").disabled = uploading; $("#micBtn").disabled = false; catchUp(); await chan.track({ typing: false }); }
       else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT"){ showNote("Lost connection to the chat. It will catch up when it reconnects."); }
     });
 }

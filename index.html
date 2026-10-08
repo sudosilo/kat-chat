@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Cat Command Chat</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#fbf6ee">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <script>try{var d=document.documentElement,s=localStorage.getItem("katSkin"),m=localStorage.getItem("katMode");if(s==="orbit")d.dataset.skin="orbit";if(m==="night")d.dataset.mode="night";else if(!m&&s==="orbit")d.dataset.mode="night";}catch(e){}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5/600.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5/700.css">
@@ -391,6 +395,17 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
   </section>
 
   <section class="dsec">
+    <p class="sh">Notifications</p>
+    <div class="seg" role="group" aria-label="Notifications">
+      <button type="button" data-notif="all">All</button>
+      <button type="button" data-notif="mentions">Mentions</button>
+      <button type="button" data-notif="off">Off</button>
+    </div>
+    <p class="hint" id="notifHint"></p>
+    <div class="dactions"><button class="mini strong" id="installBtn" type="button" hidden>Install app</button></div>
+  </section>
+
+  <section class="dsec">
     <p class="sh">Your account</p>
     <dl class="acct" id="acct"><dt>Status</dt><dd>Connecting...</dd></dl>
     <div class="dactions" id="acctActions"></div>
@@ -421,7 +436,8 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
         <p>Tap a message to react, reply, copy, edit, or delete it. Type @ to mention someone. The magnifier searches everything you can see.</p>
         <p>Use the paperclip for files up to 50 MB and the microphone for voice notes. Video and music links from popular sites play right in the chat.</p>
         <p>Mention @Claude to ask the AI in the chat. Messages that mention Claude, plus recent chat it can see, are sent to Anthropic to write the reply.</p>
-        <p>Appearance, background, and sound choices are saved on each device.</p>
+        <p>Add the chat to your home screen from your browser menu and it opens like an app. Turn on Notifications in this menu to get alerts when the chat is closed, for every message or only when someone mentions you or replies to you.</p>
+        <p>Appearance, background, sound, and notification choices are saved on each device.</p>
       </div>
     </details>
   </section>
@@ -429,7 +445,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1007q";
+const BUILD = "kat-1007r";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -1568,6 +1584,58 @@ window.addEventListener("online", catchUp);
 window.addEventListener("focus", catchUp);
 setInterval(() => { if (!document.hidden) catchUp(); }, 20000);
 
+/* Home screen install and notifications */
+let swReg = null, installEvt = null;
+let notifMode = load("katNotif") || "off";
+function notifSupported(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function b64ToU8(s){ const p = "=".repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+function paintNotif(){
+  document.querySelectorAll("[data-notif]").forEach(b => b.setAttribute("aria-pressed", b.dataset.notif === notifMode ? "true" : "false"));
+  const h = $("#notifHint");
+  if (!notifSupported()) h.textContent = "This browser can't show notifications here. Add the chat to your home screen from the browser menu, open it from there, and try again.";
+  else if (Notification.permission === "denied") h.textContent = "Notifications are blocked for this site. Allow them in the browser's site settings, then pick an option again.";
+  else if (notifMode === "all") h.textContent = "You'll get a notification for every new message while the chat is closed.";
+  else if (notifMode === "mentions") h.textContent = "You'll get a notification when someone mentions you or replies to you.";
+  else h.textContent = "Get alerts on this device when the chat is closed.";
+}
+async function saveSub(mode){
+  const r = await fetch("/api/push", { cache: "no-store" });
+  const j = await r.json().catch(() => ({}));
+  if (!j.publicKey) throw new Error("server");
+  let sub = await swReg.pushManager.getSubscription();
+  if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(j.publicKey) });
+  const k = sub.toJSON();
+  const { error } = await sb.from("chat_push").upsert({ endpoint: k.endpoint, user_id: myId, p256dh: k.keys.p256dh, auth: k.keys.auth, mode });
+  if (error) throw error;
+}
+async function setNotif(mode){
+  if (mode === "off"){
+    try{
+      const sub = swReg && await swReg.pushManager.getSubscription();
+      if (sub){ await sb.from("chat_push").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
+    }catch(e){}
+    notifMode = "off"; store("katNotif", "off"); paintNotif(); return;
+  }
+  if (!notifSupported()){ paintNotif(); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted"){ paintNotif(); return; }
+  if (!swReg) swReg = await navigator.serviceWorker.ready;
+  if (!inChat){ showNote("Join the chat first, then turn on notifications."); return; }
+  try{ await saveSub(mode); notifMode = mode; store("katNotif", mode); }
+  catch(e){ showNote(e.message === "server" ? "Notifications aren't set up on the server yet." : "Couldn't turn on notifications. Try again."); }
+  paintNotif();
+}
+document.querySelectorAll("[data-notif]").forEach(b => b.addEventListener("click", () => setNotif(b.dataset.notif)));
+async function syncPush(){
+  if (notifMode === "off" || !notifSupported() || Notification.permission !== "granted") return;
+  try{ if (!swReg) swReg = await navigator.serviceWorker.ready; await saveSub(notifMode); }catch(e){}
+}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").then(r => { swReg = r; }).catch(() => {});
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
+$("#installBtn").addEventListener("click", async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $("#installBtn").hidden = true; });
+window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; });
+paintNotif();
+
 /* Startup */
 async function loadRecent(){
   const { data } = await sb.from("chat_messages").select("*").order("id", { ascending: false }).limit(PAGE);
@@ -1594,7 +1662,7 @@ async function enterChat(justJoined){
   render();
   const mark = unreadMark !== null && nodes.get("unread");
   if (mark) mark.scrollIntoView({ block: "start" }); else lane.scrollTop = lane.scrollHeight;
-  loadAvatars();
+  loadAvatars(); syncPush();
   if (justJoined || !(profiles[myId] && profiles[myId].name)){
     openProfile(myId);
     const ed = $("#sheet .edit"); if (ed) ed.prepend(el("p", "sh", "Welcome in. Pick a name so people know it's you."));

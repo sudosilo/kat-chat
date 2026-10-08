@@ -1,0 +1,7 @@
+{
+  "name": "cat-command-chat",
+  "private": true,
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

@@ -6,7 +6,9 @@ const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const PER_PERSON_PER_DAY = 30;
 const EVERYONE_PER_DAY = 300;
-const CONTEXT_MESSAGES = 30;
+const CONTEXT_MESSAGES = 50;
+const TIMEZONE = process.env.CHAT_TIMEZONE || "America/Phoenix";
+const MAX_SEARCHES = 3;
 
 async function db(path, opts = {}){
   const key = process.env.SUPABASE_SECRET_KEY;
@@ -78,24 +80,42 @@ module.exports = async (req, res) => {
       "Members mention @Claude when they want you. Reply as a chat message: short and natural, usually one to four sentences, " +
       "unless someone asks for more detail. Use plain text with no markdown headings or tables. Be warm and a little playful; " +
       "an occasional cat joke fits the room, but don't force it. You only see the last few messages, so say so if you're missing context. " +
-      "If asked, be open that you're an AI." +
+      "If asked, be open that you're an AI. " +
+      "It is now " + new Date().toLocaleString("en-US", { timeZone: TIMEZONE, dateStyle: "full", timeStyle: "short" }) + " in the chat's home time zone (" + TIMEZONE + "). " +
+      "You have a web search tool. Use it whenever the question depends on current or local information, like events, news, prices, hours, weather or schedules, " +
+      "and don't use it for things you already know well. Keep search-based answers short and name the source in a few words." +
       (note ? "\n\nNotes from the chat owner about how to behave here:\n" + note : "");
     const prompt =
       "Recent messages in the chat, oldest first:\n\n" + lines.join("\n") +
       "\n\n" + asker + " just mentioned you in their latest message. Write your reply to " + asker + ". Output only the reply text.";
 
-    const ar = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 700, system, messages: [{ role: "user", content: prompt }] })
-    });
-    const aj = await ar.json();
-    if (!ar.ok){
-      await db("chat_bot_usage?on_conflict=user_id,day", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: uid, day, count: mine }) });
-      return send(res, 502, { error: "Claude couldn't answer: " + ((aj && aj.error && aj.error.message) || ar.status) });
+    const messages = [{ role: "user", content: prompt }];
+    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: MAX_SEARCHES, user_location: { type: "approximate", timezone: TIMEZONE } }];
+    let aj = null, blocks = [];
+    for (let round = 0; round < 4; round++){
+      const ar = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: MODEL, max_tokens: 1000, system, messages, tools })
+      });
+      aj = await ar.json();
+      if (!ar.ok){
+        await db("chat_bot_usage?on_conflict=user_id,day", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: uid, day, count: mine }) });
+        return send(res, 502, { error: "Claude couldn't answer: " + ((aj && aj.error && aj.error.message) || ar.status) });
+      }
+      blocks = blocks.concat(aj.content || []);
+      if (aj.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: aj.content });
     }
-    const text = (aj.content || []).filter(c => c.type === "text").map(c => c.text).join("\n").trim().slice(0, 4000) || "Hmm, I lost my train of thought. Try again?";
-
+    const sources = [];
+    for (const b of blocks){
+      if (b.type === "text" && Array.isArray(b.citations)){
+        for (const c of b.citations){ if (c.url && !sources.includes(c.url)) sources.push(c.url); }
+      }
+    }
+    let text = blocks.filter(c => c.type === "text").map(c => c.text).join("").trim();
+    if (sources.length) text += "\n\nSources: " + sources.slice(0, 3).join("  ");
+    text = text.slice(0, 4000) || "Hmm, I lost my train of thought. Try again?";
     await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid }) });
     return send(res, 200, { ok: true });
   }catch(e){

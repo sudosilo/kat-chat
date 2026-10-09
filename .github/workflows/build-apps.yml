@@ -114,11 +114,21 @@ jobs:
           node src-tauri/scripts/set-version.cjs "${{ needs.release.outputs.version }}"
       - name: Build Android app
         run: |
-          echo "Using NDK at $NDK_HOME"
-          npx --yes @tauri-apps/cli@2 android init --ci
-          npx --yes @tauri-apps/cli@2 icon src-tauri/app-icon.png
-          node src-tauri/scripts/patch-android.cjs
-          npx --yes @tauri-apps/cli@2 android build --apk --target aarch64 --target armv7
+          set -o pipefail
+          {
+            echo "Using NDK at $NDK_HOME"
+            npx --yes @tauri-apps/cli@2 android init --ci
+            npx --yes @tauri-apps/cli@2 icon src-tauri/app-icon.png
+            node src-tauri/scripts/patch-android.cjs
+            npx --yes @tauri-apps/cli@2 android build --apk --target aarch64 --target armv7
+          } 2>&1 | tee android-build.log
+      - name: Attach build log if it failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tail -n 400 android-build.log > android-build-log.txt 2>/dev/null || echo "no log" > android-build-log.txt
+          gh release upload "${{ needs.release.outputs.tag }}" -R "${{ github.repository }}" --clobber android-build-log.txt
       - name: Sign APK
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE }}
@@ -150,7 +160,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ needs.release.outputs.tag }}"
-          N=$(gh release view "$TAG" -R "${{ github.repository }}" --json assets --jq '.assets | length')
+          N=$(gh release view "$TAG" -R "${{ github.repository }}" --json assets --jq '[.assets[] | select(.name | endswith(".txt") | not)] | length')
           if [ "$N" -gt 0 ]; then
             gh release edit "$TAG" -R "${{ github.repository }}" --prerelease=false --latest
           else

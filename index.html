@@ -459,14 +459,29 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009c";
+const BUILD = "kat-1009d";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
 const MAX_BYTES = 50 * 1024 * 1024;
 const COLORS = ["#ff8a2b", "#ef5b5b", "#f06aa8", "#9b6bf2", "#4c8df6", "#22b5a8", "#4fbf5a", "#b5d334", "#f5c542", "#a9744f"];
 const EMOJIS = ["\u{1F44D}", "❤️", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F525}", "\u{1F431}"];
-const RETURN_TO = location.origin + location.pathname;
+const WEB_HOME = "https://kat-chat-flame.vercel.app/";
+const IS_APP = !!window.__TAURI__ || location.protocol === "tauri:" || /(^|\.)tauri\.localhost$/.test(location.hostname);
+const IS_ANDROID_APP = IS_APP && /Android/i.test(navigator.userAgent);
+const API_BASE = IS_APP ? WEB_HOME.replace(/\/$/, "") : "";
+const RELEASES = "https://github.com/sudosilo/kat-chat/releases/latest";
+const RETURN_TO = IS_APP ? WEB_HOME : location.origin + location.pathname;
+function openOutside(url){
+  const t = window.__TAURI__;
+  if (t && t.core && t.core.invoke) return t.core.invoke("plugin:opener|open_url", { url }).catch(() => window.open(url, "_blank"));
+  window.open(url, "_blank", "noopener");
+}
+if (IS_APP) document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest("a[href]");
+  if (!a || a.hasAttribute("download") || !/^https?:/i.test(a.href)) return;
+  e.preventDefault(); openOutside(a.href);
+}, true);
 const TITLE = document.title;
 
 const $ = s => document.querySelector(s);
@@ -906,10 +921,12 @@ function renderAccount(){
   else acts.append(btn("mini", "Sign out", signOutAll));
 }
 async function linkGmail(){
+  if (IS_APP){ showNote("Gmail linking works in the web version for now. It comes to the app in a later update."); return; }
   const { error } = await sb.auth.linkIdentity({ provider: "google", options: { redirectTo: RETURN_TO } });
   if (error) showNote("Couldn't start Gmail linking. " + (error.message || ""));
 }
 async function signInGmail(){
+  if (IS_APP){ showNote("Gmail sign-in works in the web version for now. It comes to the app in a later update."); return; }
   const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: RETURN_TO } });
   if (error) showNote("Couldn't start Gmail sign in. " + (error.message || ""));
 }
@@ -1176,6 +1193,10 @@ async function editPadded(id, body){
 }
 
 async function downloadFile(m){
+  if (IS_ANDROID_APP){
+    if (m.ftype.startsWith("image/")){ openLightbox(m); return; }
+    showNote("Saving files comes to the Android app in the next update. Use the web version to download this one."); return;
+  }
   showNote("Getting " + (m.fname || "file") + "...");
   try{
     const u = await fileUrl(m);
@@ -1517,7 +1538,7 @@ async function askClaude(id){
   try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: true, p: randChars(33) } }); }catch(e){}
   try{
     const { data: { session } } = await sb.auth.getSession();
-    const r = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ message_id: id }) });
+    const r = await fetch(API_BASE + "/api/claude", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ message_id: id }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) showNote(j.error || "Claude couldn't answer right now.");
   }catch(e){ showNote("Claude couldn't answer right now."); }
@@ -1632,10 +1653,13 @@ async function checkForUpdate(){
   try{
     const r = await fetch(RETURN_TO, { cache: "no-store" });
     const html = await r.text();
-    if (html.includes("const BUILD =") && !html.includes('const BUILD = "' + BUILD + '"')) $("#updateBtn").hidden = false;
+    if (html.includes("const BUILD =") && !html.includes('const BUILD = "' + BUILD + '"')){
+      if (IS_APP) $("#updateBtn").textContent = "A newer version of the app is out. Tap to get it.";
+      $("#updateBtn").hidden = false;
+    }
   }catch(e){}
 }
-$("#updateBtn").addEventListener("click", () => location.reload());
+$("#updateBtn").addEventListener("click", () => { if (IS_APP) openOutside(RELEASES); else location.reload(); });
 setInterval(checkForUpdate, 120000);
 
 let catching = false;
@@ -1682,19 +1706,20 @@ setInterval(() => { if (!document.hidden) catchUp(); }, 20000);
 /* Home screen install and notifications */
 let swReg = null, installEvt = null;
 let notifMode = load("katNotif") || "off";
-function notifSupported(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function notifSupported(){ return !IS_APP && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
 function b64ToU8(s){ const p = "=".repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)); }
 function paintNotif(){
   document.querySelectorAll("[data-notif]").forEach(b => b.setAttribute("aria-pressed", b.dataset.notif === notifMode ? "true" : "false"));
   const h = $("#notifHint");
-  if (!notifSupported()) h.textContent = "This browser can't show notifications here. Add the chat to your home screen from the browser menu, open it from there, and try again.";
+  if (IS_APP) h.textContent = "Notifications come to the app in a later update. The web version can send them today.";
+  else if (!notifSupported()) h.textContent = "This browser can't show notifications here. Add the chat to your home screen from the browser menu, open it from there, and try again.";
   else if (Notification.permission === "denied") h.textContent = "Notifications are blocked for this site. Allow them in the browser's site settings, then pick an option again.";
   else if (notifMode === "all") h.textContent = "You'll get a notification for every new message while the chat is closed.";
   else if (notifMode === "mentions") h.textContent = "You'll get a notification when someone mentions you or replies to you.";
   else h.textContent = "Get alerts on this device when the chat is closed.";
 }
 async function saveSub(mode){
-  const r = await fetch("/api/push", { cache: "no-store" });
+  const r = await fetch(API_BASE + "/api/push", { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!j.publicKey) throw new Error("server");
   let sub = await swReg.pushManager.getSubscription();
@@ -1725,7 +1750,7 @@ async function syncPush(){
   if (notifMode === "off" || !notifSupported() || Notification.permission !== "granted") return;
   try{ if (!swReg) swReg = await navigator.serviceWorker.ready; await saveSub(notifMode); }catch(e){}
 }
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").then(r => { swReg = r; }).catch(() => {});
+if (!IS_APP && "serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").then(r => { swReg = r; }).catch(() => {});
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
 $("#installBtn").addEventListener("click", async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $("#installBtn").hidden = true; });
 window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; });

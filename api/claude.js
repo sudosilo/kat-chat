@@ -30,7 +30,17 @@ async function db(path, opts = {}){
 
 function send(res, code, obj){ res.status(code).json(obj); }
 
+const APP_ORIGINS = ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"];
 module.exports = async (req, res) => {
+  const origin = req.headers.origin || "";
+  if (APP_ORIGINS.includes(origin)){
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "authorization, content-type");
+    res.setHeader("Access-Control-Max-Age", "86400");
+  }
+  if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return send(res, 405, { error: "POST only" });
   try{
     const auth = req.headers.authorization || "";

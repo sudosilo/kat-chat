@@ -1,0 +1,151 @@
+name: Build apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "index.html"
+      - "src-tauri/**"
+      - ".github/workflows/build-apps.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apps
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        run: |
+          echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "tag=v1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" -R "${{ github.repository }}" \
+            --target "${{ github.sha }}" --prerelease \
+            --title "Cat Command Chat 1.0.${{ github.run_number }}" \
+            --notes "Android APK and Windows installer built from commit ${{ github.sha }}."
+
+  windows:
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare app files
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp index.html icon-192.png icon-512.png manifest.webmanifest dist/
+          node src-tauri/scripts/set-version.cjs "${{ needs.release.outputs.version }}"
+      - name: Build Windows installer
+        shell: bash
+        run: npx --yes @tauri-apps/cli@2 build
+      - name: Upload to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd src-tauri/target/release/bundle
+          cp nsis/*.exe "../../../../Cat-Command-Chat-${{ needs.release.outputs.version }}-setup.exe"
+          cp msi/*.msi "../../../../Cat-Command-Chat-${{ needs.release.outputs.version }}.msi"
+          cd ../../../..
+          gh release upload "${{ needs.release.outputs.tag }}" -R "${{ github.repository }}" --clobber \
+            "Cat-Command-Chat-${{ needs.release.outputs.version }}-setup.exe" \
+            "Cat-Command-Chat-${{ needs.release.outputs.version }}.msi"
+
+  android:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE }}
+          KP: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS" ] || [ -z "$KP" ]; then
+            echo "::error::The Android signing key secrets are missing. Run the one-time signing key setup from Termux."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.0.12077973"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare app files
+        run: |
+          mkdir -p dist
+          cp index.html icon-192.png icon-512.png manifest.webmanifest dist/
+          node src-tauri/scripts/set-version.cjs "${{ needs.release.outputs.version }}"
+      - name: Build Android app
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+          npx --yes @tauri-apps/cli@2 android init --ci
+          npx --yes @tauri-apps/cli@2 icon src-tauri/app-icon.png
+          node src-tauri/scripts/patch-android.cjs
+          npx --yes @tauri-apps/cli@2 android build --apk --target aarch64 --target armv7
+      - name: Sign APK
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          APK=$(find src-tauri/gen/android -name "*release*.apk" | head -1)
+          echo "Unsigned APK: $APK"
+          echo "$KS" | base64 -d > ks.p12
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -p -f 4 "$APK" aligned.apk
+          "$BT/apksigner" sign --ks ks.p12 --ks-type PKCS12 --ks-pass env:KS_PASS \
+            --out "Cat-Command-Chat-${{ needs.release.outputs.version }}.apk" aligned.apk
+          "$BT/apksigner" verify "Cat-Command-Chat-${{ needs.release.outputs.version }}.apk"
+          rm -f ks.p12
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.release.outputs.tag }}" -R "${{ github.repository }}" --clobber \
+            "Cat-Command-Chat-${{ needs.release.outputs.version }}.apk"
+
+  publish:
+    needs: [release, windows, android]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish or clean up
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          N=$(gh release view "$TAG" -R "${{ github.repository }}" --json assets --jq '.assets | length')
+          if [ "$N" -gt 0 ]; then
+            gh release edit "$TAG" -R "${{ github.repository }}" --prerelease=false --latest
+          else
+            gh release delete "$TAG" -R "${{ github.repository }}" --yes --cleanup-tag
+          fi

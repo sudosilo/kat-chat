@@ -1,3 +1,4 @@
+# Builds the Android APK and Windows installer and publishes them as a GitHub release.
 name: Build apps
 
 on:

@@ -202,6 +202,21 @@ textarea::placeholder{color:var(--muted)}
 .mini{font:inherit;font-size:.82rem;background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:5px 12px;cursor:pointer}
 .mini.strong{background:var(--orange);color:var(--mine-fg);border-color:transparent;font-weight:700}
 .dactions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.chessinfo{text-align:center;margin-top:4px}
+.chessinfo .who{font-size:.9rem;color:var(--muted)}
+.chessinfo .st{font-family:var(--display);font-weight:700;font-size:1.05rem;margin-top:6px}
+.chess{display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:420px;margin:12px auto 0;border:3px solid #8b5a3c;border-radius:8px;overflow:hidden}
+.chess button{border:0;margin:0;padding:0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;font-size:min(8.6vw,38px);line-height:1;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",serif;-webkit-tap-highlight-color:transparent}
+.chess .l{background:#f0d9b5}.chess .d{background:#b58863}
+.chess .last{box-shadow:inset 0 0 0 100px rgba(255,214,0,.38)}
+.chess .sel{box-shadow:inset 0 0 0 100px rgba(47,125,225,.45)}
+.chess .chk{box-shadow:inset 0 0 18px 6px #e53935}
+.chess .mvdot::after{content:"";position:absolute;width:28%;height:28%;border-radius:50%;background:rgba(30,20,10,.3)}
+.chess .mvcap::after{content:"";position:absolute;inset:5%;border-radius:50%;border:4px solid rgba(30,20,10,.3)}
+.chess .pw{color:#fff;text-shadow:0 0 2px #000,0 0 1px #000,0 1px 1px #000}
+.chess .pb{color:#1b1310;text-shadow:0 0 1px rgba(255,255,255,.5)}
+.chess .co{position:absolute;font-family:var(--body,sans-serif);font-size:.55rem;opacity:.65;left:3px;top:2px;color:#2a1e14}
+.chessbtn{margin-top:8px}
 details{border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-top:8px}
 details summary{cursor:pointer;padding:10px 12px;font-weight:700}
 details .body{padding:0 12px 12px;font-size:.88rem}
@@ -460,7 +475,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009e";
+const BUILD = "kat-1009f";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -687,6 +702,7 @@ function openSheet(key){
 
 /* Person card */
 function openProfile(id, refreshOnly){
+  if (refreshOnly && /^chess-/.test(String(id))) return;
   if (refreshOnly && sheetFor !== id) return;
   if (refreshOnly && $("#sheet").querySelector(".edit,.admin select:focus")) return;
   if (id === BOT_ID){
@@ -725,7 +741,10 @@ function openProfile(id, refreshOnly){
     sh.append(profileEditor());
     const inv = btn("mini", "Invite someone", openInvites); inv.style.marginTop = "12px"; sh.append(inv);
   }
-  else if (isOwner() && memberOf(id)) sh.append(adminTools(id));
+  else {
+    if (memberOf(id)){ const pc = btn("mini strong", "Play chess", () => startChess(id)); pc.style.marginTop = "12px"; sh.append(pc); }
+    if (isOwner() && memberOf(id)) sh.append(adminTools(id));
+  }
 }
 function adminTools(id){
   const box = el("div", "admin");
@@ -1377,7 +1396,10 @@ function bubbleEl(m, flags){
     q.addEventListener("click", ev => { ev.stopPropagation(); jumpTo(m.reply); });
     b.append(q);
   }
-  if (m.text){ const t = el("div", "txt"); renderText(t, m.text, flags); b.append(t); }
+  const chessId = chessTag(m.text);
+  const shown = chessId ? m.text.replace(CHESS_TAG, "").trim() : m.text;
+  if (shown){ const t = el("div", "txt"); renderText(t, shown, flags); b.append(t); }
+  if (chessId){ const cb = btn("mini strong chessbtn", "Open the board", () => openChess(chessId)); b.append(cb); }
   if (m.path) b.append(fileEl(m));
   b.addEventListener("click", e => { if (e.target.closest("a[href],button,audio,video,.apbar")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
   return b;
@@ -1790,6 +1812,156 @@ $("#installBtn").addEventListener("click", async () => { if (!installEvt) return
 window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; });
 paintNotif();
 
+/* Chess: challenge anyone in the chat, play on a shared board, others can watch */
+const CHESS_TAG = /\s*#chess-(\d+)\s*$/;
+const CHESS_SRC = "https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.js";
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const games = new Map();
+let chessSel = null, chessPoll = null, chessBusy = false, chessLib = null;
+function chessTag(t){ const m = t && t.match(CHESS_TAG); return m ? Number(m[1]) : 0; }
+function needChess(){
+  if (window.Chess) return Promise.resolve();
+  if (!chessLib) chessLib = new Promise((res, rej) => {
+    const sc = document.createElement("script"); sc.src = CHESS_SRC;
+    sc.onload = () => window.Chess ? res() : rej(new Error("chess"));
+    sc.onerror = () => { chessLib = null; rej(new Error("chess")); };
+    document.head.append(sc);
+  });
+  return chessLib;
+}
+function chessFrom(g){ const c = new window.Chess(); for (const mv of g.moves || []) if (!c.move(mv)) break; return c; }
+function chessStatusOf(c){ return c.in_checkmate() ? "checkmate" : c.in_stalemate() ? "stalemate" : c.in_draw() ? "draw" : "active"; }
+function chessName(id){ return id === myId ? "You" : nameOf(id); }
+async function startChess(opp){
+  try{ await needChess(); }catch(e){ showNote("Couldn't load the chess board. Check your connection."); return; }
+  const white = Math.random() < 0.5;
+  const { data, error } = await sb.rpc("chess_new", { p_opponent: opp, p_white: white });
+  if (error || !data){ showNote(/function|schema|exist/i.test((error && error.message) || "") ? "Chess isn't set up on the server yet." : "Couldn't start the game."); return; }
+  games.set(data.id, data);
+  const body = "♟ @" + nameOf(opp) + ", " + nameOf(myId) + " challenged you to chess. " + (white ? nameOf(myId) : nameOf(opp)) + " plays white and moves first. #chess-" + data.id;
+  const res = await insertPadded("chat_messages", { body, pad: textPad(body) }, true);
+  if (!res.error && res.data){ justSent = true; addMsg(toMsg(res.data)); bumpStats(toMsg(res.data)); }
+  openChess(data.id);
+}
+async function fetchGame(id){
+  const { data } = await sb.from("chat_games").select("*").eq("id", id).maybeSingle();
+  if (data) games.set(id, data);
+  return data;
+}
+async function openChess(id){
+  chessSel = null;
+  try{ await needChess(); }catch(e){ showNote("Couldn't load the chess board. Check your connection."); return; }
+  const g = games.get(id) || await fetchGame(id);
+  if (!g){ showNote("That game isn't available to you."); return; }
+  openSheet("chess-" + id); renderChess(id);
+  clearInterval(chessPoll);
+  chessPoll = setInterval(() => {
+    if (sheetFor !== "chess-" + id){ clearInterval(chessPoll); chessPoll = null; return; }
+    if (!document.hidden && !chessBusy) fetchGame(id).then(n => { if (n) gotGame(n); });
+  }, 5000);
+}
+function gotGame(row){
+  const old = games.get(row.id);
+  if (old && (old.moves || []).length > (row.moves || []).length && old.status === row.status) return;
+  games.set(row.id, row);
+  if (sheetFor === "chess-" + row.id && !chessBusy){
+    if (!old || (old.moves || []).length !== (row.moves || []).length || old.status !== row.status){ chessSel = null; renderChess(row.id); }
+  }
+}
+function renderChess(id){
+  const g = games.get(id); if (!g || sheetFor !== "chess-" + id) return;
+  const sh = $("#sheet"); const x = sh.querySelector(".x"); sh.textContent = ""; if (x) sh.append(x);
+  const c = chessFrom(g);
+  const amWhite = g.white === myId, amBlack = g.black === myId, player = amWhite || amBlack;
+  const turnId = c.turn() === "w" ? g.white : g.black;
+  const myTurn = g.status === "active" && turnId === myId;
+  const info = el("div", "chessinfo");
+  info.append(el("div", "pname", "Chess"));
+  info.append(el("div", "who", "♔ " + chessName(g.white) + "  vs  ♚ " + chessName(g.black)));
+  let st;
+  if (g.status === "checkmate") st = "Checkmate. " + (g.winner === myId ? "You win!" : nameOf(g.winner) + " wins.");
+  else if (g.status === "resigned") st = (g.winner === myId ? "They resigned. You win!" : chessName(g.winner === g.white ? g.black : g.white) + " resigned. " + nameOf(g.winner) + " wins.");
+  else if (g.status === "stalemate") st = "Stalemate. It's a draw.";
+  else if (g.status === "draw") st = "It's a draw.";
+  else st = (myTurn ? "Your move" : nameOf(turnId) + " to move") + (c.in_check() ? ". Check!" : "");
+  info.append(el("div", "st", st));
+  sh.append(info);
+  const board = el("div", "chess");
+  const grid = c.board();
+  const hist = c.history({ verbose: true }); const last = hist[hist.length - 1];
+  const legal = chessSel ? c.moves({ square: chessSel, verbose: true }) : [];
+  const files = "abcdefgh";
+  const flip = amBlack;
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++){
+    const rr = flip ? 7 - r : r, ff = flip ? 7 - f : f;
+    const sq = files[ff] + (8 - rr);
+    const pc = grid[rr][ff];
+    const b = document.createElement("button"); b.type = "button";
+    b.className = ((rr + ff) % 2 ? "d" : "l");
+    if (last && (sq === last.from || sq === last.to)) b.classList.add("last");
+    if (sq === chessSel) b.classList.add("sel");
+    const tgt = legal.find(mv => mv.to === sq);
+    if (tgt) b.classList.add(pc ? "mvcap" : "mvdot");
+    if (pc && pc.type === "k" && pc.color === c.turn() && c.in_check()) b.classList.add("chk");
+    if (pc){ const s = el("span", pc.color === "w" ? "pw" : "pb", GLYPH[pc.type] + "︎"); b.append(s); }
+    if (f === 0) b.append(el("span", "co", String(8 - rr)));
+    b.setAttribute("aria-label", sq + (pc ? " " + (pc.color === "w" ? "white " : "black ") + ({k:"king",q:"queen",r:"rook",b:"bishop",n:"knight",p:"pawn"})[pc.type] : ""));
+    b.addEventListener("click", () => chessTap(id, sq));
+    board.append(b);
+  }
+  sh.append(board);
+  const acts = el("div", "dactions"); acts.style.justifyContent = "center";
+  if (player && g.status === "active") acts.append(btn("mini danger", "Resign", () => chessResign(id)));
+  if (!player) acts.append(el("span", "hint2", "You're watching this game."));
+  acts.append(el("span", "hint2", "Move " + (Math.floor((g.moves || []).length / 2) + 1)));
+  sh.append(acts);
+}
+async function chessTap(id, sq){
+  const g = games.get(id); if (!g || chessBusy) return;
+  const c = chessFrom(g);
+  const turnId = c.turn() === "w" ? g.white : g.black;
+  if (g.status !== "active" || turnId !== myId) return;
+  if (chessSel){
+    const mv = c.moves({ square: chessSel, verbose: true }).find(m => m.to === sq);
+    if (mv){
+      const made = c.move({ from: chessSel, to: sq, promotion: "q" });
+      chessSel = null;
+      if (!made) { renderChess(id); return; }
+      const status = chessStatusOf(c);
+      const ply = (g.moves || []).length;
+      const optimistic = { ...g, moves: [...(g.moves || []), made.san], status, winner: status === "checkmate" ? myId : null };
+      games.set(id, optimistic); renderChess(id);
+      chessBusy = true;
+      const { data, error } = await sb.rpc("chess_move", { p_game: id, p_move: made.san, p_ply: ply, p_status: status });
+      chessBusy = false;
+      if (error || !data){ showNote("That move didn't go through. The board has been refreshed."); games.delete(id); await fetchGame(id); renderChess(id); return; }
+      games.set(id, data); renderChess(id);
+      if (status !== "active"){
+        const opp = myId === g.white ? g.black : g.white;
+        const body = status === "checkmate" ? "♟ Checkmate! " + nameOf(myId) + " beat @" + nameOf(opp) + " at chess. #chess-" + id
+          : "♟ The chess game between " + nameOf(myId) + " and @" + nameOf(opp) + " ended in a draw. #chess-" + id;
+        const res = await insertPadded("chat_messages", { body, pad: textPad(body) }, true);
+        if (!res.error && res.data){ justSent = true; addMsg(toMsg(res.data)); bumpStats(toMsg(res.data)); }
+      }
+      return;
+    }
+  }
+  const pc = c.get(sq);
+  chessSel = pc && pc.color === c.turn() && sq !== chessSel ? sq : null;
+  renderChess(id);
+}
+async function chessResign(id){
+  const g = games.get(id); if (!g) return;
+  if (!confirm("Resign this game?")) return;
+  const { data, error } = await sb.rpc("chess_resign", { p_game: id });
+  if (error || !data){ showNote("Couldn't resign. Try again."); return; }
+  games.set(id, data); renderChess(id);
+  const opp = myId === g.white ? g.black : g.white;
+  const body = "♟ " + nameOf(myId) + " resigned. @" + nameOf(opp) + " wins the chess game. #chess-" + id;
+  const res = await insertPadded("chat_messages", { body, pad: textPad(body) }, true);
+  if (!res.error && res.data){ justSent = true; addMsg(toMsg(res.data)); bumpStats(toMsg(res.data)); }
+}
+
 /* Startup */
 async function loadRecent(){
   const { data } = await sb.from("chat_messages").select("*").order("id", { ascending: false }).limit(PAGE);
@@ -1842,6 +2014,7 @@ async function enterChat(justJoined){
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_names" }, p => {
       if (p.new && p.new.id){ setProfile(p.new); loadAvatars(); renderRail(); render(); renderAccount(); if (sheetFor === p.new.id && p.new.id !== myId) openProfile(p.new.id, true); }
     })
+    .on("postgres_changes", { event: "*", schema: "public", table: "chat_games" }, p => { if (p.new && p.new.id) gotGame(p.new); })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {
       if (status === "SUBSCRIBED"){ ready = true; if (/^Lost connection/.test(note.textContent)) showNote(""); updateSend(); $("#attachBtn").disabled = uploading; $("#micBtn").disabled = false; catchUp(); await trackTyping(false); }

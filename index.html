@@ -485,7 +485,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009h";
+const BUILD = "kat-1009i";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -1414,7 +1414,7 @@ function bubbleEl(m, flags){
   }
   const chessId = chessTag(m.text);
   const shown = chessId ? m.text.replace(CHESS_TAG, "").trim() : m.text;
-  if (isBareMedia(shown)){ flags.firstUrl = shown.trim(); b.append(el("div", "txt", /yarn/i.test(shown) ? "\u{1F3AC} Movie clip" : "GIF")); }
+  if (isBareMedia(shown)){ flags.firstUrl = shown.trim(); b.append(el("div", "txt", /yarn|klipy[^ ]*\.mp4/i.test(shown) ? "\u{1F3AC} Movie clip" : "GIF")); }
   else if (shown){ const t = el("div", "txt"); renderText(t, shown, flags); b.append(t); }
   if (chessId){ const cb = btn("mini strong chessbtn", "Open the board", () => openChess(chessId)); b.append(cb); }
   if (m.path) b.append(fileEl(m));
@@ -1834,7 +1834,7 @@ window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; 
 paintNotif();
 
 /* Fun picker: GIFs and movie and TV quote clips */
-function isBareMedia(t){ return /^\s*https:\/\/(?:y\.yarn\.co\/[0-9a-f-]{36}\.mp4|media\d*\.giphy\.com\/media\/[\w.\/-]+\.gif|i\.giphy\.com\/[\w.\/-]+\.gif)\s*$/i.test(t || ""); }
+function isBareMedia(t){ return /^\s*https:\/\/(?:y\.yarn\.co\/[0-9a-f-]{36}\.mp4|media\d*\.giphy\.com\/media\/[\w.\/-]+\.gif|i\.giphy\.com\/[\w.\/-]+\.gif|[\w.-]*klipy\.com\/[\w.\/%-]+\.(?:mp4|gif|webp))\s*$/i.test(t || ""); }
 let funTab = load("katFunTab") || "gif", funQuery = "", funSeq = 0;
 function openFun(){
   const sh = openSheet("fun");
@@ -1859,7 +1859,7 @@ function openFun(){
   async function runFun(){
     const seq = ++funSeq;
     grid.textContent = "";
-    if (funTab === "yarn" && !funQuery){ foot.textContent = "Type a line from a movie or show, like \"I'll be back\", and pick the clip."; return; }
+
     foot.textContent = "Searching...";
     try{
       const { data: { session } } = await sb.auth.getSession();
@@ -1868,18 +1868,18 @@ function openFun(){
       if (seq !== funSeq || sheetFor !== "fun") return;
       if (!r.ok || j.error){ foot.textContent = j.error || "Search didn't work. Try again."; return; }
       const items = j.items || [];
-      foot.textContent = items.length ? (funTab === "gif" ? "Powered by GIPHY" : "Clips from Yarn. They play with sound.") : "Nothing found. Try other words.";
+      foot.textContent = items.length ? (funTab === "gif" ? "Powered by GIPHY" : "Movie and TV clips. They play with sound.") : "Nothing found. Try other words.";
       for (const it of items){
         const b = btn(null, null, () => sendFun(it.url));
         b.setAttribute("aria-label", it.title || "Send this");
-        const im = document.createElement("img"); im.loading = "lazy"; im.alt = ""; im.src = it.preview;
-        im.onerror = () => b.remove();
-        b.append(im); grid.append(b);
+        if (it.preview){ const im = document.createElement("img"); im.loading = "lazy"; im.alt = ""; im.src = it.preview; im.onerror = () => b.remove(); b.append(im); }
+        else { const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "metadata"; v.src = it.url + "#t=0.5"; v.style.width = "100%"; v.style.display = "block"; b.append(v); }
+        grid.append(b);
       }
     }catch(e){ if (seq === funSeq) foot.textContent = "Search didn't work. Check your connection."; }
   }
   paint(); runFun();
-  if (funTab === "yarn" && !funQuery) setTimeout(() => inp.focus(), 50);
+  
 }
 async function sendFun(url){
   if (!ready){ showNote("Still connecting. Try again in a moment."); return; }

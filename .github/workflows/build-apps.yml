@@ -89,9 +89,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
-      - name: Install Android NDK
-        run: sdkmanager --install "ndk;27.0.12077973"
+      - name: Find Android NDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ -n "$ANDROID_NDK_LATEST_HOME" ] && [ -d "$ANDROID_NDK_LATEST_HOME" ]; then
+            echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+          else
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.0.12077973" > /dev/null
+            echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          fi
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi
@@ -108,7 +114,7 @@ jobs:
           node src-tauri/scripts/set-version.cjs "${{ needs.release.outputs.version }}"
       - name: Build Android app
         run: |
-          export NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"
+          echo "Using NDK at $NDK_HOME"
           npx --yes @tauri-apps/cli@2 android init --ci
           npx --yes @tauri-apps/cli@2 icon src-tauri/app-icon.png
           node src-tauri/scripts/patch-android.cjs

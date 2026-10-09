@@ -117,10 +117,12 @@ jobs:
           set -o pipefail
           {
             echo "Using NDK at $NDK_HOME"
-            npx --yes @tauri-apps/cli@2 android init --ci
-            npx --yes @tauri-apps/cli@2 icon src-tauri/app-icon.png
+            npm pkg set scripts.tauri=tauri
+            npm install --no-save @tauri-apps/cli@2
+            npm run tauri -- android init --ci
+            npm run tauri -- icon src-tauri/app-icon.png
             node src-tauri/scripts/patch-android.cjs
-            npx --yes @tauri-apps/cli@2 android build --apk --target aarch64 --target armv7
+            npm run tauri -- android build --apk --target aarch64 --target armv7
           } 2>&1 | tee android-build.log
       - name: Attach build log if it failed
         if: failure()

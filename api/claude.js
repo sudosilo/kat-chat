@@ -122,7 +122,12 @@ module.exports = async (req, res) => {
     let text = blocks.filter(c => c.type === "text").map(c => c.text).join("").trim();
     if (sources.length) text += "\n\nSources: " + sources.slice(0, 3).join("  ");
     text = text.slice(0, 4000) || "Hmm, I lost my train of thought. Try again?";
-    await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid, pad: padFor(text) }) });
+    try{
+      await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid, pad: padFor(text) }) });
+    }catch(e){
+      if (!/pad/i.test(String(e.message))) throw e;
+      await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid }) });
+    }
     return send(res, 200, { ok: true });
   }catch(e){
     return send(res, 500, { error: "Something went wrong on the server. " + String(e.message || e).slice(0, 160) });

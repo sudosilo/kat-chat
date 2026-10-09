@@ -459,7 +459,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009b";
+const BUILD = "kat-1009c";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -973,6 +973,7 @@ function actionsEl(m){
   }
   const acts = el("div", "acts");
   if (m.path && m.ftype.startsWith("image/")) acts.append(btn("mini", "View picture", () => { pickerFor = null; render(); openLightbox(m); }));
+  if (m.path) acts.append(btn("mini", "Download", () => { pickerFor = null; render(); downloadFile(m); }));
   acts.append(btn("mini", "Reply", () => { pickerFor = null; startCtx("reply", m); render(); }));
   if (m.text) acts.append(btn("mini", "Copy", async () => { try{ await navigator.clipboard.writeText(m.text); }catch(e){} pickerFor = null; render(); }));
   if (m.from === myId && m.text) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
@@ -1174,6 +1175,15 @@ async function editPadded(id, body){
   return sb.rpc("edit_message", { p_id: id, p_body: body });
 }
 
+async function downloadFile(m){
+  showNote("Getting " + (m.fname || "file") + "...");
+  try{
+    const u = await fileUrl(m);
+    const a = document.createElement("a"); a.href = u; a.download = m.fname || "file"; document.body.append(a); a.click(); a.remove();
+    showNote("");
+  }catch(e){ showNote("Couldn't get that file. Try again."); }
+}
+
 /* Padding: random filler so sizes on the wire don't reveal content */
 const PAD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 function randBytes(n){ const b = new Uint8Array(Math.max(0, n)); for (let i = 0; i < b.length; i += 65536) crypto.getRandomValues(b.subarray(i, Math.min(i + 65536, b.length))); return b; }
@@ -1235,29 +1245,24 @@ function fileEl(m){
     return box;
   }
   if (m.ftype.startsWith("video/")){
-    const c = btn("vidcard att", "\u25B6  Play video, " + fmtSize(m.fsize));
-    c.addEventListener("click", async ev => {
-      ev.stopPropagation(); c.textContent = "Loading video...";
+    const c = el("div", "vidcard att");
+    const pb = btn("apbtn"); pb.innerHTML = PLAY_SVG; pb.setAttribute("aria-label", "Play video");
+    const lbl = el("span", null, "Video, " + fmtSize(m.fsize));
+    c.append(pb, lbl);
+    pb.addEventListener("click", async ev => {
+      ev.stopPropagation(); lbl.textContent = "Loading video...";
       try{
         const u = await fileUrl(m);
         const v = document.createElement("video"); v.controls = true; v.playsInline = true; v.autoplay = true; v.className = "media att"; v.src = u;
         c.replaceWith(v);
-      }catch(e){ c.textContent = "Couldn't load that video. Tap to try again."; }
+      }catch(e){ lbl.textContent = "Couldn't load that video. Tap play to try again."; }
     });
     return c;
   }
-  const b = btn("filecard att");
+  const b = el("div", "filecard att");
   b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z M14 3v5h5 M12 11v6 M9 14l3 3 3-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const info = el("span"); const fs = el("span", "fs", fmtSize(m.fsize) + ", tap to download");
+  const info = el("span"); const fs = el("span", "fs", fmtSize(m.fsize) + ", tap for options");
   info.append(el("span", "fn", m.fname || "File"), fs); b.append(info);
-  b.addEventListener("click", async () => {
-    fs.textContent = "Getting file...";
-    try{
-      const u = await fileUrl(m);
-      const a = document.createElement("a"); a.href = u; a.download = m.fname || "file"; document.body.append(a); a.click(); a.remove();
-    }catch(e){ showNote("Couldn't get that file. Try again."); }
-    fs.textContent = fmtSize(m.fsize) + ", tap to download";
-  });
   return b;
 }
 let uploading = false;
@@ -1352,7 +1357,7 @@ function bubbleEl(m, flags){
   }
   if (m.text){ const t = el("div", "txt"); renderText(t, m.text, flags); b.append(t); }
   if (m.path) b.append(fileEl(m));
-  b.addEventListener("click", e => { if (e.target.closest("a,button,audio,video,.ap")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
+  b.addEventListener("click", e => { if (e.target.closest("a[href],button,audio,video,.apbar")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
   return b;
 }
 function setPart(wrap, key, node, after){

@@ -459,7 +459,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009a";
+const BUILD = "kat-1009b";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -946,7 +946,7 @@ async function toggleReact(id, emoji){
     if (error){ addReact(row); render(); showNote("Couldn't remove that reaction."); }
   } else {
     addReact(row); render();
-    const { error } = await sb.from("chat_reactions").insert({ message_id: id, emoji, pad: randChars(64 - utf8Len(emoji)) });
+    const { error } = await insertPadded("chat_reactions", { message_id: id, emoji, pad: randChars(64 - utf8Len(emoji)) }, false);
     if (error){ removeReact(row); render(); showNote("Couldn't add that reaction."); }
   }
 }
@@ -1155,6 +1155,25 @@ function audioPlayer(setSrc, knownSec){
   return box;
 }
 
+/* If the database doesn't have the filler columns yet, send without them instead of failing */
+let padOn = true;
+function padMissing(err){ return !!err && (err.code === "PGRST204" || err.code === "PGRST202" || err.code === "42703" || /\bpad\b|p_pad/i.test(err.message || "")); }
+async function insertPadded(table, row, single){
+  const run = r => single ? sb.from(table).insert(r).select().single() : sb.from(table).insert(r);
+  if (!padOn){ const r = { ...row }; delete r.pad; return run(r); }
+  let res = await run(row);
+  if (res.error && padMissing(res.error)){ padOn = false; const r = { ...row }; delete r.pad; res = await run(r); }
+  return res;
+}
+async function editPadded(id, body){
+  if (padOn){
+    const res = await sb.rpc("edit_message", { p_id: id, p_body: body, p_pad: textPad(body) });
+    if (!(res.error && padMissing(res.error))) return res;
+    padOn = false;
+  }
+  return sb.rpc("edit_message", { p_id: id, p_body: body });
+}
+
 /* Padding: random filler so sizes on the wire don't reveal content */
 const PAD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 function randBytes(n){ const b = new Uint8Array(Math.max(0, n)); for (let i = 0; i < b.length; i += 65536) crypto.getRandomValues(b.subarray(i, Math.min(i + 65536, b.length))); return b; }
@@ -1255,7 +1274,7 @@ async function sendFiles(list){
     const row = { body: "", file_path: path, file_name: file.name.slice(0, 200), file_size: file.size, file_type: file.type || "" };
     row.pad = textPad(row.body, row.file_name, row.file_type);
     if (ctx && ctx.type === "reply"){ row.reply_to = ctx.id; endCtx(); }
-    const { data, error } = await sb.from("chat_messages").insert(row).select().single();
+    const { data, error } = await insertPadded("chat_messages", row, true);
     if (error){ showNote(file.name + " uploaded but the message failed. Try again."); continue; }
     const nm = toMsg(data); addMsg(nm); bumpStats(nm); showNote("");
   }
@@ -1447,7 +1466,7 @@ $("#form").addEventListener("submit", async e => {
   sendBtn.disabled = true; $("#mentions").hidden = true;
   if (ctx && ctx.type === "edit"){
     const id = ctx.id;
-    const { data, error } = await sb.rpc("edit_message", { p_id: id, p_body: t.slice(0, 4000), p_pad: textPad(t.slice(0, 4000)) });
+    const { data, error } = await editPadded(id, t.slice(0, 4000));
     if (error || !data){ showNote("Couldn't save that edit."); updateSend(); return; }
     const m = msgById(id); if (m){ m.text = t.slice(0, 4000); m.edited = true; }
     endCtx(); render(); return;
@@ -1455,7 +1474,7 @@ $("#form").addEventListener("submit", async e => {
   const row = { body: t.slice(0, 4000) };
   row.pad = textPad(row.body);
   if (ctx && ctx.type === "reply") row.reply_to = ctx.id;
-  const { data, error } = await sb.from("chat_messages").insert(row).select().single();
+  const { data, error } = await insertPadded("chat_messages", row, true);
   if (error){ showNote("Message didn't send. Check your connection and try again."); }
   else {
     const nm = toMsg(data); justSent = true; unreadMark = null; addMsg(nm); bumpStats(nm);

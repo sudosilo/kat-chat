@@ -282,6 +282,10 @@ select{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);
 .sheet .hint2{color:var(--muted);font-size:.82rem;margin:0 0 10px}
 .searchrow{display:flex;gap:8px;margin-top:10px}
 .searchrow .send{width:auto;flex:none;padding:10px 16px}
+.lightbox{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px}
+.lightbox img{max-width:100%;max-height:82vh;border-radius:10px;object-fit:contain}
+.lightbox .mini{background:#fff;color:#1b1310}
+.vidcard{font:inherit;display:flex;align-items:center;gap:10px;background:transparent;border:1px solid color-mix(in srgb, currentColor 30%, transparent);color:inherit;border-radius:12px;padding:10px 14px;cursor:pointer}
 .searchrow input{flex:1;min-width:0;font-size:1rem;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg)}
 .ap{display:flex;align-items:center;gap:10px;width:min(280px,64vw);padding:2px 0}
 .apbtn{width:38px;height:38px;border-radius:50%;border:none;flex:none;cursor:pointer;display:grid;place-items:center;color:inherit;background:color-mix(in srgb, currentColor 18%, transparent);padding:0}
@@ -431,6 +435,15 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
       </div>
     </details>
     <details>
+      <summary>Privacy and security</summary>
+      <div class="body">
+        <p>Everything travels encrypted over TLS, the same protection as the padlock in your browser. Someone on the same wifi sees scrambled data, not messages or pictures.</p>
+        <p>On top of that, every message is padded with random filler to a standard size, so a short reply and a long paragraph look the same on the wire. Reactions, typing signals, and notifications are padded the same way.</p>
+        <p>Files are padded with random bytes up to fixed size steps and stored under random names with no file type, so their exact size can't be used to guess what they are. Your phone trims the filler off before showing them.</p>
+        <p>What padding can't hide is timing: a watcher can still tell that something was sent and when.</p>
+      </div>
+    </details>
+    <details>
       <summary>How it works</summary>
       <div class="body">
         <p>The row of faces is everyone in the chat. A green dot means they have it open now. Tap anyone to see their activity. Tap your own face to set your name, color, and picture.</p>
@@ -446,7 +459,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1008a";
+const BUILD = "kat-1009a";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -789,7 +802,8 @@ async function shrinkImage(file, s){
 async function setAvatar(file){
   const blob = await shrinkImage(file, 256);
   const path = myId + "/" + Date.now() + ".jpg";
-  const up = await sb.storage.from(AV_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
+  const padded = new Blob([blob, randBytes(fileBucket(blob.size, 65536) - blob.size)], { type: "image/jpeg" });
+  const up = await sb.storage.from(AV_BUCKET).upload(path, padded, { contentType: "image/jpeg" });
   if (up.error) throw up.error;
   const { error } = await sb.from("chat_names").upsert({ id: myId, avatar_path: path });
   if (error) throw error;
@@ -932,7 +946,7 @@ async function toggleReact(id, emoji){
     if (error){ addReact(row); render(); showNote("Couldn't remove that reaction."); }
   } else {
     addReact(row); render();
-    const { error } = await sb.from("chat_reactions").insert({ message_id: id, emoji });
+    const { error } = await sb.from("chat_reactions").insert({ message_id: id, emoji, pad: randChars(64 - utf8Len(emoji)) });
     if (error){ removeReact(row); render(); showNote("Couldn't add that reaction."); }
   }
 }
@@ -958,11 +972,7 @@ function actionsEl(m){
     b.setAttribute("aria-label", "React " + e); p.append(b);
   }
   const acts = el("div", "acts");
-  if (m.path && m.ftype.startsWith("image/")) acts.append(btn("mini", "View picture", async () => {
-    const w = window.open("", "_blank");
-    try{ const u = await signedUrl(m.path); if (w) w.location = u; else location.assign(u); }
-    catch(e){ if (w) w.close(); showNote("Couldn't open that picture."); }
-  }));
+  if (m.path && m.ftype.startsWith("image/")) acts.append(btn("mini", "View picture", () => { pickerFor = null; render(); openLightbox(m); }));
   acts.append(btn("mini", "Reply", () => { pickerFor = null; startCtx("reply", m); render(); }));
   if (m.text) acts.append(btn("mini", "Copy", async () => { try{ await navigator.clipboard.writeText(m.text); }catch(e){} pickerFor = null; render(); }));
   if (m.from === myId && m.text) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
@@ -1145,25 +1155,77 @@ function audioPlayer(setSrc, knownSec){
   return box;
 }
 
-/* Files */
-const urlCache = {};
-function cachedUrl(path){ const c = urlCache[path]; return c && c.exp > Date.now() ? c.url : null; }
-async function signedUrl(path){
-  const hit = cachedUrl(path); if (hit) return hit;
-  const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
-  if (error) throw error;
-  urlCache[path] = { url: data.signedUrl, exp: Date.now() + 3000000 }; return data.signedUrl;
+/* Padding: random filler so sizes on the wire don't reveal content */
+const PAD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+function randBytes(n){ const b = new Uint8Array(Math.max(0, n)); for (let i = 0; i < b.length; i += 65536) crypto.getRandomValues(b.subarray(i, Math.min(i + 65536, b.length))); return b; }
+function randChars(n){ const b = randBytes(n); let s = ""; for (let i = 0; i < b.length; i++) s += PAD_CHARS[b[i] & 63]; return s; }
+function utf8Len(s){ return new TextEncoder().encode(s || "").length; }
+function textPad(...parts){
+  const used = parts.reduce((n, x) => n + utf8Len(x), 0);
+  let bucket = 4096; while (bucket < used + 64) bucket *= 2;
+  return randChars(bucket - used);
+}
+function fileBucket(n, start){ let b = start || 65536; while (b < n) b *= 2; return b; }
+function padFile(blob, start, cap){
+  const target = Math.min(fileBucket(blob.size, start), cap || MAX_BYTES);
+  return new Blob([blob, randBytes(target - blob.size)], { type: "application/octet-stream" });
+}
+const seeObs = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return;
+  seeObs.unobserve(e.target); const f = e.target._onSee; e.target._onSee = null; if (f) f();
+}), { rootMargin: "600px" }) : null;
+function whenVisible(node, fn){ if (!seeObs) return fn(); node._onSee = fn; seeObs.observe(node); }
+
+/* Files: downloaded through the signed-in connection, filler trimmed off on the phone */
+const blobCache = {};
+function fileUrl(m){
+  if (blobCache[m.path]) return blobCache[m.path];
+  const p = (async () => {
+    const { data, error } = await sb.storage.from(BUCKET).download(m.path);
+    if (error) throw error;
+    const buf = await data.arrayBuffer();
+    const real = m.fsize && m.fsize < buf.byteLength ? buf.slice(0, m.fsize) : buf;
+    return URL.createObjectURL(new Blob([real], { type: m.ftype || "application/octet-stream" }));
+  })();
+  blobCache[m.path] = p; p.catch(() => { delete blobCache[m.path]; });
+  return p;
+}
+function openLightbox(m){
+  const lb = el("div", "lightbox"); lb.setAttribute("role", "dialog"); lb.setAttribute("aria-label", "Picture");
+  const img = document.createElement("img"); img.alt = m.fname || "";
+  const row = el("div", "prow");
+  const save = el("a", "mini", "Save"); save.download = m.fname || "picture";
+  row.append(save, btn("mini", "Close", () => lb.remove()));
+  lb.append(img, row);
+  lb.addEventListener("click", e => { if (e.target === lb || e.target === img) lb.remove(); });
+  document.body.append(lb);
+  fileUrl(m).then(u => { img.src = u; save.href = u; }).catch(() => { lb.remove(); showNote("Couldn't open that picture."); });
 }
 function fileEl(m){
-  const setSrc = (node, after) => { const hit = cachedUrl(m.path); if (hit){ node.src = hit; if (after) after(hit); } else signedUrl(m.path).then(u => { node.src = u; if (after) after(u); }).catch(() => {}); };
   if (m.ftype.startsWith("image/")){
     const a = el("div", "thumb att");
-    const img = document.createElement("img"); img.alt = m.fname; img.loading = "lazy";
-    setSrc(img); a.append(img); return a;
+    const img = document.createElement("img"); img.alt = m.fname;
+    a.append(img);
+    whenVisible(a, () => fileUrl(m).then(u => { img.src = u; }).catch(() => { img.alt = "Picture unavailable"; }));
+    return a;
   }
-  if (m.ftype.startsWith("audio/")) return audioPlayer(a => setSrc(a), voiceSecs(m.fname));
+  if (m.ftype.startsWith("audio/")){
+    let aud = null;
+    const box = audioPlayer(x => { aud = x; }, voiceSecs(m.fname));
+    whenVisible(box, () => fileUrl(m).then(u => { aud.src = u; }).catch(() => {}));
+    return box;
+  }
   if (m.ftype.startsWith("video/")){
-    const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.className = "media att"; setSrc(v); return v;
+    const c = btn("vidcard att", "\u25B6  Play video, " + fmtSize(m.fsize));
+    c.addEventListener("click", async ev => {
+      ev.stopPropagation(); c.textContent = "Loading video...";
+      try{
+        const u = await fileUrl(m);
+        const v = document.createElement("video"); v.controls = true; v.playsInline = true; v.autoplay = true; v.className = "media att"; v.src = u;
+        c.replaceWith(v);
+      }catch(e){ c.textContent = "Couldn't load that video. Tap to try again."; }
+    });
+    return c;
   }
   const b = btn("filecard att");
   b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z M14 3v5h5 M12 11v6 M9 14l3 3 3-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -1171,10 +1233,11 @@ function fileEl(m){
   info.append(el("span", "fn", m.fname || "File"), fs); b.append(info);
   b.addEventListener("click", async () => {
     fs.textContent = "Getting file...";
-    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(m.path, 300, { download: m.fname || true });
+    try{
+      const u = await fileUrl(m);
+      const a = document.createElement("a"); a.href = u; a.download = m.fname || "file"; document.body.append(a); a.click(); a.remove();
+    }catch(e){ showNote("Couldn't get that file. Try again."); }
     fs.textContent = fmtSize(m.fsize) + ", tap to download";
-    if (error){ showNote("Couldn't get that file. Try again."); return; }
-    location.assign(data.signedUrl);
   });
   return b;
 }
@@ -1186,11 +1249,11 @@ async function sendFiles(list){
   for (const file of files){
     if (file.size > MAX_BYTES){ showNote(file.name + " is over 50 MB and wasn't sent."); continue; }
     showNote("Uploading " + file.name + "...");
-    const safe = (file.name.replace(/[^\w.\-]+/g, "_").slice(-80)) || "file";
-    const path = myId + "/" + Date.now() + "-" + safe;
-    const up = await sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream" });
+    const path = myId + "/" + Date.now() + "-" + randChars(12) + ".bin";
+    const up = await sb.storage.from(BUCKET).upload(path, padFile(file), { contentType: "application/octet-stream" });
     if (up.error){ showNote("Upload of " + file.name + " failed. Try again."); continue; }
     const row = { body: "", file_path: path, file_name: file.name.slice(0, 200), file_size: file.size, file_type: file.type || "" };
+    row.pad = textPad(row.body, row.file_name, row.file_type);
     if (ctx && ctx.type === "reply"){ row.reply_to = ctx.id; endCtx(); }
     const { data, error } = await sb.from("chat_messages").insert(row).select().single();
     if (error){ showNote(file.name + " uploaded but the message failed. Try again."); continue; }
@@ -1384,12 +1447,13 @@ $("#form").addEventListener("submit", async e => {
   sendBtn.disabled = true; $("#mentions").hidden = true;
   if (ctx && ctx.type === "edit"){
     const id = ctx.id;
-    const { data, error } = await sb.rpc("edit_message", { p_id: id, p_body: t.slice(0, 4000) });
+    const { data, error } = await sb.rpc("edit_message", { p_id: id, p_body: t.slice(0, 4000), p_pad: textPad(t.slice(0, 4000)) });
     if (error || !data){ showNote("Couldn't save that edit."); updateSend(); return; }
     const m = msgById(id); if (m){ m.text = t.slice(0, 4000); m.edited = true; }
     endCtx(); render(); return;
   }
   const row = { body: t.slice(0, 4000) };
+  row.pad = textPad(row.body);
   if (ctx && ctx.type === "reply") row.reply_to = ctx.id;
   const { data, error } = await sb.from("chat_messages").insert(row).select().single();
   if (error){ showNote("Message didn't send. Check your connection and try again."); }
@@ -1409,12 +1473,13 @@ function bumpStats(m){
 }
 
 let typingNow = false, typingTimer = null;
+function trackTyping(on){ return chan ? chan.track({ typing: on, p: randChars(on ? 33 : 32) }).catch(() => {}) : Promise.resolve(); }
 function setTyping(on){
   if (!chan) return;
   clearTimeout(typingTimer);
   if (on) typingTimer = setTimeout(() => setTyping(false), 4000);
   if (on === typingNow) return;
-  typingNow = on; chan.track({ typing: on }).catch(() => {});
+  typingNow = on; trackTyping(on);
 }
 let typingText = "", botThinking = false, botTimer = null;
 function paintTyping(){ $("#typing").textContent = [botThinking ? "Claude is thinking..." : "", typingText].filter(Boolean).join("   "); }
@@ -1425,7 +1490,7 @@ function setBotThinking(on){
 }
 async function askClaude(id){
   setBotThinking(true);
-  try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: true } }); }catch(e){}
+  try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: true, p: randChars(33) } }); }catch(e){}
   try{
     const { data: { session } } = await sb.auth.getSession();
     const r = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ message_id: id }) });
@@ -1433,7 +1498,7 @@ async function askClaude(id){
     if (!r.ok) showNote(j.error || "Claude couldn't answer right now.");
   }catch(e){ showNote("Claude couldn't answer right now."); }
   setBotThinking(false);
-  try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: false } }); }catch(e){}
+  try{ chan && chan.send({ type: "broadcast", event: "claude", payload: { on: false, p: randChars(32) } }); }catch(e){}
 }
 async function openBotNote(){
   closeMenu();
@@ -1570,7 +1635,7 @@ async function catchUp(){
       const ids = recent.map(m => m.id);
       const [rx, edits] = await Promise.all([
         sb.from("chat_reactions").select("message_id,user_id,emoji").in("message_id", ids),
-        sb.from("chat_messages").select("*").gte("id", recent[0].id).or("edited_at.not.is.null,deleted_at.not.is.null")
+        sb.from("chat_messages").select("id,sender,body,created_at,file_path,file_name,file_size,file_type,edited_at,deleted_at,reply_to").gte("id", recent[0].id).or("edited_at.not.is.null,deleted_at.not.is.null")
       ]);
       if (rx.data){ ids.forEach(id => reacts.delete(id)); rx.data.forEach(addReact); }
       if (edits.data) edits.data.forEach(r => { const i = msgs.findIndex(x => x.id === r.id); if (i >= 0) msgs[i] = toMsg(r); });
@@ -1696,7 +1761,7 @@ async function enterChat(justJoined){
     })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {
-      if (status === "SUBSCRIBED"){ ready = true; if (/^Lost connection/.test(note.textContent)) showNote(""); updateSend(); $("#attachBtn").disabled = uploading; $("#micBtn").disabled = false; catchUp(); await chan.track({ typing: false }); }
+      if (status === "SUBSCRIBED"){ ready = true; if (/^Lost connection/.test(note.textContent)) showNote(""); updateSend(); $("#attachBtn").disabled = uploading; $("#micBtn").disabled = false; catchUp(); await trackTyping(false); }
       else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT"){ showNote("Lost connection to the chat. It will catch up when it reconnects."); }
     });
 }

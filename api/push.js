@@ -57,7 +57,9 @@ module.exports = async (req, res) => {
     const lower = text.toLowerCase();
 
     webpush.setVapidDetails("https://" + (req.headers.host || "localhost"), process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
-    const payload = JSON.stringify({ title: nameOf(msg.sender), body, tag: "kat-chat", url: "/" });
+    const base = { title: nameOf(msg.sender), body, tag: "kat-chat", url: "/" };
+    const used = Buffer.byteLength(JSON.stringify({ ...base, p: "" }));
+    const payload = JSON.stringify({ ...base, p: require("crypto").randomBytes(1536).toString("base64url").slice(0, Math.max(0, 1536 - used)) });
 
     const targets = subs.filter(s => {
       if (s.user_id === msg.sender || !memberSet.has(s.user_id)) return false;

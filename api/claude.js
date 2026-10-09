@@ -1,7 +1,13 @@
 // Server function: answers @Claude mentions in the chat.
 // Runs on Vercel. Needs ANTHROPIC_API_KEY and SUPABASE_SECRET_KEY set in Vercel.
 
+const crypto = require("crypto");
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
+function padFor(text){
+  const used = Buffer.byteLength(text || "");
+  let bucket = 4096; while (bucket < used + 64) bucket *= 2;
+  return crypto.randomBytes(bucket).toString("base64url").slice(0, bucket - used);
+}
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const PER_PERSON_PER_DAY = 30;
@@ -116,7 +122,7 @@ module.exports = async (req, res) => {
     let text = blocks.filter(c => c.type === "text").map(c => c.text).join("").trim();
     if (sources.length) text += "\n\nSources: " + sources.slice(0, 3).join("  ");
     text = text.slice(0, 4000) || "Hmm, I lost my train of thought. Try again?";
-    await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid }) });
+    await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid, pad: padFor(text) }) });
     return send(res, 200, { ok: true });
   }catch(e){
     return send(res, 500, { error: "Something went wrong on the server. " + String(e.message || e).slice(0, 160) });

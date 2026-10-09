@@ -485,7 +485,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009i";
+const BUILD = "kat-1009j";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -1034,6 +1034,16 @@ function actionsEl(m){
   box.append(p, acts);
   return box;
 }
+let pressT = null, pressXY = null, pressFired = false;
+lane.addEventListener("pointerdown", e => {
+  const w = e.target.closest(".msg"); if (!w || e.target.closest(".actions")) return;
+  pressXY = [e.clientX, e.clientY]; pressFired = false; clearTimeout(pressT);
+  pressT = setTimeout(() => { const id = Number(w.dataset.id); if (!id) return; pressFired = true; pickerFor = id; render(); if (navigator.vibrate) navigator.vibrate(15); }, 550);
+});
+["pointerup", "pointercancel", "pointerleave"].forEach(t => lane.addEventListener(t, () => clearTimeout(pressT)));
+lane.addEventListener("pointermove", e => { if (pressXY && Math.hypot(e.clientX - pressXY[0], e.clientY - pressXY[1]) > 10) clearTimeout(pressT); });
+lane.addEventListener("click", e => { if (pressFired){ pressFired = false; e.preventDefault(); e.stopPropagation(); } }, true);
+lane.addEventListener("contextmenu", e => { if (e.target.closest(".msg video,.msg img")) e.preventDefault(); });
 lane.addEventListener("click", e => { if (pickerFor !== null && !e.target.closest(".bubble,.actions,.embed")){ pickerFor = null; render(); } });
 
 /* Reply and edit bar */
@@ -1153,11 +1163,11 @@ function embedFor(url){
     const id = m[1].toLowerCase(); const box = el("div", "embed");
     const v = document.createElement("video"); v.className = "clip"; v.controls = true; v.playsInline = true; v.preload = "none";
     v.poster = "https://y.yarn.co/" + id + "_text.gif"; v.src = "https://y.yarn.co/" + id + ".mp4";
-    box.append(v, el("span", "cap", "Movie and TV clip from Yarn")); return box;
+    box.append(v, el("span", "cap", "\u{1F3AC} Movie clip. Tap this bar to react or delete.")); return box;
   }
   const path = url.split(/[?#]/)[0].toLowerCase();
   if (/\.(mp3|m4a|ogg|oga|wav|aac|flac|opus)$/.test(path)){ const box = el("div", "embed"); box.append(audioPlayer(a => { a.src = url; }, 0)); return box; }
-  if (/\.(mp4|webm|mov|m4v)$/.test(path)){ const box = el("div", "embed"); const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.src = url; v.className = "media"; box.append(v); return box; }
+  if (/\.(mp4|webm|mov|m4v)$/.test(path)){ const box = el("div", "embed"); const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.src = url; v.className = "media"; box.append(v, el("span", "cap", (/klipy/i.test(url) ? "\u{1F3AC} Movie clip" : "Video") + ". Tap this bar to react or delete.")); return box; }
   if (/\.(png|jpe?g|gif|webp|avif)$/.test(path)){ const box = el("div", "embed"); const i = document.createElement("img"); i.src = url; i.alt = ""; i.loading = "lazy"; box.append(i); return box; }
   return null;
 }

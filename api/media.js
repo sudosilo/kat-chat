@@ -33,16 +33,30 @@ async function gifs(q){
   }).filter(x => x.url && x.preview) };
 }
 
+const YARN_HOSTS = ["https://www.yarn.co", "https://yarn.co", "https://getyarn.io"];
+const BROWSER = {
+  "User-Agent": UA,
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Site": "none", "Upgrade-Insecure-Requests": "1"
+};
 async function yarn(q){
   if (!q) return { items: [] };
-  const r = await fetch("https://getyarn.io/yarn-find?text=" + encodeURIComponent(q), { headers: { "User-Agent": UA, Accept: "text/html" } });
-  if (!r.ok) return { error: "Yarn isn't answering right now." };
-  const html = await r.text();
-  const ids = [];
-  const re = /yarn-clip\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
-  let m;
-  while ((m = re.exec(html)) && ids.length < 24){ const id = m[1].toLowerCase(); if (!ids.includes(id)) ids.push(id); }
-  return { items: ids.map(id => ({ id, preview: "https://y.yarn.co/" + id + "_text.gif", url: "https://y.yarn.co/" + id + ".mp4" })) };
+  const codes = [];
+  for (const host of YARN_HOSTS){
+    try{
+      const r = await fetch(host + "/yarn-find?text=" + encodeURIComponent(q), { headers: BROWSER, redirect: "follow" });
+      if (!r.ok){ codes.push(r.status); continue; }
+      const html = await r.text();
+      const ids = [];
+      const re = /yarn-clip\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
+      let m;
+      while ((m = re.exec(html)) && ids.length < 24){ const id = m[1].toLowerCase(); if (!ids.includes(id)) ids.push(id); }
+      if (!ids.length && /captcha|cloudflare|challenge/i.test(html)){ codes.push("check"); continue; }
+      return { items: ids.map(id => ({ id, preview: "https://y.yarn.co/" + id + "_text.gif", url: "https://y.yarn.co/" + id + ".mp4" })) };
+    }catch(e){ codes.push("net"); }
+  }
+  return { error: "Yarn isn't answering right now (" + codes.join(", ") + ")." };
 }
 
 module.exports = async (req, res) => {

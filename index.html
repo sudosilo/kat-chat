@@ -407,6 +407,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
       <button type="button" data-notif="off">Off</button>
     </div>
     <p class="hint" id="notifHint"></p>
+    <div class="dactions" id="ntfyRow" hidden><button class="mini strong" id="ntfyOpen" type="button">Connect ntfy</button><button class="mini" id="ntfyCopy" type="button">Copy topic</button></div>
     <div class="dactions"><button class="mini strong" id="installBtn" type="button" hidden>Install app</button></div>
   </section>
 
@@ -459,7 +460,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009d";
+const BUILD = "kat-1009e";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -1706,12 +1707,25 @@ setInterval(() => { if (!document.hidden) catchUp(); }, 20000);
 /* Home screen install and notifications */
 let swReg = null, installEvt = null;
 let notifMode = load("katNotif") || "off";
-function notifSupported(){ return !IS_APP && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+const NTFY_HOST = "https://ntfy.sh/";
+function ntfyTopic(){
+  let t = load("katNtfyTopic");
+  if (!t || !/^kc-[A-Za-z0-9_-]{24}$/.test(t)){ t = "kc-" + randChars(24).replace(/[^A-Za-z0-9_-]/g, "x"); store("katNtfyTopic", t); }
+  return t;
+}
+function ntfyEndpoint(){ return "ntfy:" + NTFY_HOST + ntfyTopic(); }
+function notifSupported(){ return IS_ANDROID_APP || (!IS_APP && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window); }
 function b64ToU8(s){ const p = "=".repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)); }
 function paintNotif(){
   document.querySelectorAll("[data-notif]").forEach(b => b.setAttribute("aria-pressed", b.dataset.notif === notifMode ? "true" : "false"));
   const h = $("#notifHint");
-  if (IS_APP) h.textContent = "Notifications come to the app in a later update. The web version can send them today.";
+  $("#ntfyRow").hidden = !(IS_ANDROID_APP && notifMode !== "off");
+  if (IS_ANDROID_APP){
+    if (notifMode === "off") h.textContent = "Alerts arrive through the ntfy app, so you get them even when the chat is closed. They never include who wrote or what was said.";
+    else h.textContent = "On. If you haven't yet, tap Connect ntfy and subscribe to the topic it opens. Your topic is " + ntfyTopic() + ". Treat it like a password.";
+    return;
+  }
+  if (IS_APP) h.textContent = "Notifications come to the desktop app in a later update. The web version can send them today.";
   else if (!notifSupported()) h.textContent = "This browser can't show notifications here. Add the chat to your home screen from the browser menu, open it from there, and try again.";
   else if (Notification.permission === "denied") h.textContent = "Notifications are blocked for this site. Allow them in the browser's site settings, then pick an option again.";
   else if (notifMode === "all") h.textContent = "You'll get a notification for every new message while the chat is closed.";
@@ -1719,6 +1733,11 @@ function paintNotif(){
   else h.textContent = "Get alerts on this device when the chat is closed.";
 }
 async function saveSub(mode){
+  if (IS_ANDROID_APP){
+    const { error } = await sb.from("chat_push").upsert({ endpoint: ntfyEndpoint(), user_id: myId, p256dh: "ntfy", auth: "ntfy", mode });
+    if (error) throw error;
+    return;
+  }
   const r = await fetch(API_BASE + "/api/push", { cache: "no-store" });
   const j = await r.json().catch(() => ({}));
   if (!j.publicKey) throw new Error("server");
@@ -1728,26 +1747,41 @@ async function saveSub(mode){
   const { error } = await sb.from("chat_push").upsert({ endpoint: k.endpoint, user_id: myId, p256dh: k.keys.p256dh, auth: k.keys.auth, mode });
   if (error) throw error;
 }
+function openNtfy(){ openOutside("ntfy://ntfy.sh/" + ntfyTopic()); }
 async function setNotif(mode){
   if (mode === "off"){
     try{
-      const sub = swReg && await swReg.pushManager.getSubscription();
-      if (sub){ await sb.from("chat_push").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
+      if (IS_ANDROID_APP) await sb.from("chat_push").delete().eq("endpoint", ntfyEndpoint());
+      else {
+        const sub = swReg && await swReg.pushManager.getSubscription();
+        if (sub){ await sb.from("chat_push").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
+      }
     }catch(e){}
     notifMode = "off"; store("katNotif", "off"); paintNotif(); return;
   }
   if (!notifSupported()){ paintNotif(); return; }
-  const perm = await Notification.requestPermission();
-  if (perm !== "granted"){ paintNotif(); return; }
-  if (!swReg) swReg = await navigator.serviceWorker.ready;
   if (!inChat){ showNote("Join the chat first, then turn on notifications."); return; }
+  if (!IS_ANDROID_APP){
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted"){ paintNotif(); return; }
+    if (!swReg) swReg = await navigator.serviceWorker.ready;
+  }
+  const first = notifMode === "off";
   try{ await saveSub(mode); notifMode = mode; store("katNotif", mode); }
   catch(e){ showNote(e.message === "server" ? "Notifications aren't set up on the server yet." : "Couldn't turn on notifications. Try again."); }
   paintNotif();
+  if (IS_ANDROID_APP && first && notifMode !== "off") openNtfy();
 }
 document.querySelectorAll("[data-notif]").forEach(b => b.addEventListener("click", () => setNotif(b.dataset.notif)));
+$("#ntfyOpen").addEventListener("click", openNtfy);
+$("#ntfyCopy").addEventListener("click", async () => {
+  try{ await navigator.clipboard.writeText(ntfyTopic()); showNote("Topic copied. In ntfy, tap +, paste it, and subscribe."); }
+  catch(e){ showNote("Your topic is " + ntfyTopic()); }
+});
 async function syncPush(){
-  if (notifMode === "off" || !notifSupported() || Notification.permission !== "granted") return;
+  if (notifMode === "off" || !notifSupported()) return;
+  if (IS_ANDROID_APP){ try{ await saveSub(notifMode); }catch(e){} return; }
+  if (Notification.permission !== "granted") return;
   try{ if (!swReg) swReg = await navigator.serviceWorker.ready; await saveSub(notifMode); }catch(e){}
 }
 if (!IS_APP && "serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").then(r => { swReg = r; }).catch(() => {});

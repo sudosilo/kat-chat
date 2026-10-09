@@ -1,5 +1,6 @@
 // Server function: sends phone notifications for new chat messages.
 // Supabase calls POST here for every new message. The app calls GET to learn the public key.
+// Android app subscribers get a generic alert through ntfy, with no names or message text.
 // Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and SUPABASE_SECRET_KEY set in Vercel.
 
 const webpush = require("web-push");
@@ -80,6 +81,20 @@ module.exports = async (req, res) => {
     });
     let sent = 0;
     await Promise.all(targets.map(async s => {
+      if (s.endpoint.startsWith("ntfy:")){
+        const url = s.endpoint.slice(5);
+        if (!/^https:\/\/ntfy\.sh\/kc-[A-Za-z0-9_-]{24}$/.test(url)) return;
+        const direct = s.mode !== "all" || replyTo === s.user_id;
+        try{
+          const r = await fetch(url, {
+            method: "POST",
+            headers: { Title: "Cat Command Chat", Tags: "cat", Click: "catchat://open", Priority: direct ? "high" : "default" },
+            body: direct ? "Someone mentioned you or replied to you" : "New message"
+          });
+          if (r.ok) sent++;
+        }catch(e){}
+        return;
+      }
       try{
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });
         sent++;

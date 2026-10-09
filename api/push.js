@@ -67,7 +67,11 @@ module.exports = async (req, res) => {
       : "shared a file";
     const lower = text.toLowerCase();
 
-    webpush.setVapidDetails("https://" + (req.headers.host || "localhost"), process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+    let webReady = false;
+    try{
+      webpush.setVapidDetails("https://" + (req.headers.host || "localhost"), process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+      webReady = true;
+    }catch(e){}
     const base = { title: nameOf(msg.sender), body, tag: "kat-chat", url: "/" };
     const used = Buffer.byteLength(JSON.stringify({ ...base, p: "" }));
     const payload = JSON.stringify({ ...base, p: require("crypto").randomBytes(1536).toString("base64url").slice(0, Math.max(0, 1536 - used)) });
@@ -85,16 +89,16 @@ module.exports = async (req, res) => {
         const url = s.endpoint.slice(5);
         if (!/^https:\/\/ntfy\.sh\/kc-[A-Za-z0-9_-]{24}$/.test(url)) return;
         const direct = s.mode !== "all" || replyTo === s.user_id;
+        const body = direct ? "Someone mentioned you or replied to you" : "New message";
+        const headers = { Title: "Cat Command Chat", Tags: "cat", Priority: direct ? "high" : "default" };
         try{
-          const r = await fetch(url, {
-            method: "POST",
-            headers: { Title: "Cat Command Chat", Tags: "cat", Click: "catchat://open", Priority: direct ? "high" : "default" },
-            body: direct ? "Someone mentioned you or replied to you" : "New message"
-          });
+          let r = await fetch(url, { method: "POST", headers: { ...headers, Click: "catchat://open" }, body });
+          if (!r.ok) r = await fetch(url, { method: "POST", headers, body });
           if (r.ok) sent++;
         }catch(e){}
         return;
       }
+      if (!webReady) return;
       try{
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });
         sent++;

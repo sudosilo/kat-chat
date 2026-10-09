@@ -485,7 +485,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009g";
+const BUILD = "kat-1009h";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -1023,7 +1023,7 @@ function actionsEl(m){
   if (m.path) acts.append(btn("mini", "Download", () => { pickerFor = null; render(); downloadFile(m); }));
   acts.append(btn("mini", "Reply", () => { pickerFor = null; startCtx("reply", m); render(); }));
   if (m.text) acts.append(btn("mini", "Copy", async () => { try{ await navigator.clipboard.writeText(m.text); }catch(e){} pickerFor = null; render(); }));
-  if (m.from === myId && m.text) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
+  if (m.from === myId && m.text && !isBareMedia(m.text)) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
   if (m.from === myId || isOwner()) acts.append(btn("mini danger", "Delete", async () => {
     if (!confirm("Delete this message for everyone?")) return;
     pickerFor = null;
@@ -1034,7 +1034,7 @@ function actionsEl(m){
   box.append(p, acts);
   return box;
 }
-lane.addEventListener("click", e => { if (pickerFor !== null && !e.target.closest(".bubble,.actions")){ pickerFor = null; render(); } });
+lane.addEventListener("click", e => { if (pickerFor !== null && !e.target.closest(".bubble,.actions,.embed")){ pickerFor = null; render(); } });
 
 /* Reply and edit bar */
 function showCtxBar(type, m){
@@ -1441,7 +1441,11 @@ function updateWrap(wrap, m, cont){
     setPart(wrap, "bub", bubbleEl(m, flags), wrap._meta);
     wrap._bubSig = bubSig; wrap._tagged = !!flags.me && !mine;
     const url = !m.deleted && flags.firstUrl;
-    if (url !== wrap._embedUrl){ setPart(wrap, "embed", url ? embedFor(url) : null, wrap._bub); wrap._embedUrl = url; }
+    if (url !== wrap._embedUrl){
+      const em = url ? embedFor(url) : null;
+      if (em) em.addEventListener("click", e => { if (e.target.closest("a[href],button,audio,video,iframe,.apbar")) return; pickerFor = pickerFor === m.id ? null : m.id; render(); });
+      setPart(wrap, "embed", em, wrap._bub); wrap._embedUrl = url;
+    }
   }
   if (wrap._actSig !== actSig){ setPart(wrap, "act", actSig ? actionsEl(m) : null, wrap._embed || wrap._bub); wrap._actSig = actSig; }
   if (wrap._rxSig !== rxSig){ setPart(wrap, "rx", m.deleted ? null : reactsEl(m), wrap._act || wrap._embed || wrap._bub); wrap._rxSig = rxSig; }

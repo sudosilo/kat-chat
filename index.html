@@ -8,11 +8,13 @@
 <meta name="theme-color" content="#fbf6ee">
 <link rel="icon" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
-<script>try{var d=document.documentElement,s=localStorage.getItem("katSkin"),m=localStorage.getItem("katMode");if(s==="orbit")d.dataset.skin="orbit";if(m==="night")d.dataset.mode="night";else if(!m&&s==="orbit")d.dataset.mode="night";}catch(e){}</script>
+<script>try{var d=document.documentElement,s=localStorage.getItem("katSkin"),m=localStorage.getItem("katMode");if(s==="orbit"||s==="tomatomo")d.dataset.skin=s;if(m==="night")d.dataset.mode="night";else if(!m&&s==="orbit")d.dataset.mode="night";}catch(e){}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5/600.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fredoka@5/700.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/400.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/700.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/silkscreen@5/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/silkscreen@5/700.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* Look = skin (shapes and fonts) plus mode (day or night colors). Kat is the house style. Orbit is the original design this app started from; Orbit at night is that original exactly. */
@@ -322,6 +324,68 @@ select{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);
 .admin{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 .brand{flex:1}
+
+/* Tomatomo skin: the chat as a clear blue pocket pet handheld. The message lane is the LCD, every member is a pixel pet, and your pet lives in the header screen. It stays light in both modes; night only dims the LCD like the backlight is off. */
+[data-skin="tomatomo"]{
+  --display:"Silkscreen","Courier New",monospace; --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --orange:#2a6fdb; --orange-deep:#173f8f; --mine-fg:#ffffff;
+  --bg:#e6edf6; --panel:#ffffff; --fg:#1a2333; --muted:#5a6679; --line:#cdd8ea; --theirs:#ffffff; --theirs-fg:#1a2333;
+  --live:#ffb233; --live-glow:rgba(255,178,51,.8); --title-accent:#2a6fdb;
+  --lcd:#c3cdb3; --lcd-ink:#1d2a2c; --lcd-ghost:rgba(29,42,44,.07); --bezel:#22304b;
+  --sky:radial-gradient(rgba(42,111,219,.1) 1px, transparent 1.5px);
+  --namebtn-bg:#f3f7fe; --scrim:rgba(20,40,90,.3);
+  color-scheme:light;
+}
+[data-skin="tomatomo"][data-mode="night"]{ --lcd:#8f9c88; --lcd-ghost:rgba(0,0,0,.09); color-scheme:light; }
+[data-skin="tomatomo"] body:not(.hasbg){background-size:16px 16px}
+.tomapet{display:none}
+.swatch.tomatomo{background:radial-gradient(circle at 35% 35%, #c3cdb3 30%, #3f86ea 32%)}
+[data-skin="tomatomo"] .app{width:calc(100% - 16px);max-width:640px;height:calc(100% - 16px);margin:8px auto;padding:12px 14px 4px;border-radius:30px 30px 38px 38px;
+  background:linear-gradient(155deg,rgba(146,196,255,.96) 0%,rgba(64,134,234,.96) 46%,rgba(28,88,192,.98) 100%);
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -8px 18px rgba(8,34,96,.38),inset 0 0 0 2px rgba(255,255,255,.2),0 18px 30px -14px rgba(23,63,143,.5)}
+[data-skin="tomatomo"] header{border-bottom:none;padding-block:2px 8px}
+[data-skin="tomatomo"] .cat{display:none}
+[data-skin="tomatomo"] .tomapet{display:block;flex:none;width:112px;height:48px;image-rendering:pixelated;border:5px solid var(--bezel);border-radius:8px;background:var(--lcd);cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.45);-webkit-tap-highlight-color:transparent}
+[data-skin="tomatomo"] h1{color:#fff;font-size:.78rem;white-space:normal;letter-spacing:.04em;text-shadow:0 1px 0 rgba(8,34,96,.35)}
+[data-skin="tomatomo"] h1 span{color:#d6e6ff}
+[data-skin="tomatomo"] .sub{color:#dfeaff;font-size:.68rem}
+[data-skin="tomatomo"] .dot{box-shadow:0 0 8px var(--live-glow)}
+[data-skin="tomatomo"] .menubtn{background:linear-gradient(#f8fbff,#dce7f8);border:0;color:#173f8f;border-radius:14px;box-shadow:0 3px 0 #7d98c8}
+[data-skin="tomatomo"] .menubtn:active{transform:translateY(2px);box-shadow:0 1px 0 #7d98c8}
+[data-skin="tomatomo"] .drawer .menubtn,[data-skin="tomatomo"] .sheet .menubtn,[data-skin="tomatomo"] .ctxbar .menubtn{box-shadow:0 2px 0 #b6c6e2}
+[data-skin="tomatomo"] .rail{border-bottom:none;padding-top:4px}
+[data-skin="tomatomo"] .person .nm{color:#e8f0ff;font-family:var(--display);font-size:.55rem}
+[data-skin="tomatomo"] .person.on .nm{color:#fff}
+[data-skin="tomatomo"] .person:hover{background:rgba(255,255,255,.15)}
+[data-skin="tomatomo"] .av.toma{border-radius:8px;background:var(--lcd);box-shadow:0 0 0 3px var(--bezel)}
+[data-skin="tomatomo"] .av.toma img{image-rendering:pixelated}
+[data-skin="tomatomo"] .avwrap .od{border-color:var(--bezel);box-shadow:0 0 6px var(--live-glow)}
+[data-skin="tomatomo"] #lane{background-color:var(--lcd);background-image:linear-gradient(var(--lcd-ghost) 1px,transparent 1px),linear-gradient(90deg,var(--lcd-ghost) 1px,transparent 1px);background-size:4px 4px;
+  border:7px solid var(--bezel);border-radius:14px;padding:12px 10px;box-shadow:inset 0 2px 8px rgba(0,0,0,.22),0 1px 0 rgba(255,255,255,.45)}
+[data-skin="tomatomo"] #lane .meta{color:var(--lcd-ink);font-family:var(--display);font-size:.6rem}
+[data-skin="tomatomo"] .day{background:transparent;color:var(--lcd-ink);border:2px solid var(--lcd-ink);border-radius:2px;font-size:.6rem}
+[data-skin="tomatomo"] .empty,[data-skin="tomatomo"] .empty b{color:var(--lcd-ink)}
+[data-skin="tomatomo"] .empty b{font-size:.9rem}
+[data-skin="tomatomo"] .newline{color:var(--lcd-ink);font-family:var(--display)}
+[data-skin="tomatomo"] .newline::before,[data-skin="tomatomo"] .newline::after{background:var(--lcd-ink)}
+[data-skin="tomatomo"] .bubble{background:rgba(255,255,255,.4)!important;color:var(--lcd-ink)!important;border:2px solid var(--lcd-ink)!important;border-radius:4px!important;box-shadow:inset 5px 0 0 var(--pc,transparent),3px 3px 0 rgba(29,42,44,.2)}
+[data-skin="tomatomo"] .msg.me .bubble{background:var(--lcd-ink)!important;color:#e9f2dc!important;box-shadow:3px 3px 0 rgba(29,42,44,.2)}
+[data-skin="tomatomo"] .msg.tagged .bubble{box-shadow:0 0 0 3px #2a6fdb,3px 3px 0 rgba(29,42,44,.2)}
+[data-skin="tomatomo"] .bubble.gone{background:transparent!important;border-style:dashed!important}
+[data-skin="tomatomo"] .rchip{border:2px solid var(--lcd-ink);border-radius:4px;background:rgba(255,255,255,.5);color:var(--lcd-ink)}
+[data-skin="tomatomo"] .rchip.mine{border-color:#2a6fdb;background:rgba(42,111,219,.18)}
+[data-skin="tomatomo"] .older{border:2px solid var(--lcd-ink);border-radius:4px;background:rgba(255,255,255,.4);color:var(--lcd-ink);font-family:var(--display);font-size:.65rem}
+[data-skin="tomatomo"] .typing{color:#fff;font-family:var(--display);font-size:.6rem;padding-top:4px}
+[data-skin="tomatomo"] .note{color:#eaf1ff}
+[data-skin="tomatomo"] form.composer{border-top:none;padding-block:4px 14px}
+[data-skin="tomatomo"] textarea{background:#f6f9ff;border:3px solid var(--bezel);border-radius:12px;color:#1a2333}
+[data-skin="tomatomo"] .attach{background:linear-gradient(#f8fbff,#dce7f8);border:0;color:#173f8f;border-radius:14px;box-shadow:0 3px 0 #7d98c8}
+[data-skin="tomatomo"] .attach:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #7d98c8}
+[data-skin="tomatomo"] .attach.rec{background:#ef5b5b;color:#fff}
+[data-skin="tomatomo"] .send{background:linear-gradient(#fff6e0,#ffd98a);color:#5a3a00;box-shadow:0 3px 0 #c99a3a;border-radius:18px;font-size:.8rem;letter-spacing:.04em}
+[data-skin="tomatomo"] .update{background:#fff;color:#173f8f;font-family:var(--display);font-size:.7rem}
+[data-skin="tomatomo"] .ctxbar{border:3px solid var(--bezel)}
+[data-skin="tomatomo"] .dhead .dt,[data-skin="tomatomo"] .sheet .pname,[data-skin="tomatomo"] .sheet h3,[data-skin="tomatomo"] .lock h2{font-size:1rem;color:#173f8f}
 </style>
 </head>
 <body>
@@ -344,6 +408,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
         <path class="shine" d="M13 22 q4 -10 14 -14" stroke="#ffffff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
         <rect x="20" y="56" width="24" height="6" rx="3" fill="#9aa7c7"/>
       </svg>
+      <canvas class="tomapet" id="tomaPet" width="224" height="96" aria-label="Your pet. Tap to pet it."></canvas>
       <div>
         <h1>Cat Command <span>Chat</span></h1>
         <div class="sub"><span class="dot"></span><span id="onlineText">Connecting...</span></div>
@@ -403,6 +468,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
     <div class="skins">
       <button class="skin" type="button" data-pick="kat"><span class="swatch kat"></span>Kat</button>
       <button class="skin" type="button" data-pick="orbit"><span class="swatch orbit"></span>Orbit, the original</button>
+      <button class="skin" type="button" data-pick="tomatomo"><span class="swatch tomatomo"></span>Tomatomo mode</button>
     </div>
     <div class="dactions">
       <button class="mini" id="bgAdd" type="button">Background picture</button>
@@ -532,6 +598,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
       <summary>Appearance and sounds</summary>
       <div class="body">
         <p>Choose a skin, including the original Orbit look, day or night mode, and a background.</p>
+        <p>Tomatomo mode turns the chat into a clear blue pocket pet handheld. The messages show on a green LCD screen, and every member is a pixel pet that grows up as they send more messages, from a tiny baby to one of several adult forms. Your own pet lives in the screen at the top. It eats when you send a message, perks up when someone writes, jumps when you are mentioned, shows a heart when someone reacts to you, wonders while Claude is thinking, and dozes late at night. Tap it to pet it. Night mode dims the screen like the backlight is off.</p>
         <p>New messages can play a ding, a meow, or nothing.</p>
         <p>Appearance, background, sound, and notification choices are saved on each device.</p>
       </div>
@@ -558,7 +625,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1009k";
+const BUILD = "kat-1031t";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -632,12 +699,191 @@ function snippet(m){
   return m.fname || "a file";
 }
 
+
+/* Tomatomo skin: pixel pets. Every member gets a pet picked from their id, it grows with their message count, and your own pet lives in the header screen and reacts to the chat. */
+const TOMA = (() => {
+  const CHILD = ["sprout","smudge"], TEEN = ["perkear","zippet","gruffhorn","spikelet"], ADULT = ["regalpuff","mellowtail","skyzip","chonkle","brambleback","grumblet"];
+  const FORMS = {
+    blip:{rx:4,ry:3,f:["cheeks"]}, sprout:{rx:5,ry:5,f:["antenna","feet"]}, smudge:{rx:5,ry:4,f:["tuft","feet"]},
+    perkear:{rx:6,ry:6,f:["ears","feet","arms","belly"]}, zippet:{rx:6,ry:5,f:["antenna","tail","feet","cheeks"]},
+    gruffhorn:{rx:7,ry:5,f:["horns","feet","arms"]}, spikelet:{rx:6,ry:5,f:["spikes","tail","feet"]},
+    regalpuff:{rx:8,ry:8,f:["crown","ears","wings","belly","arms","feet"]}, mellowtail:{rx:8,ry:7,f:["ears","tail","belly","arms","feet","cheeks"]},
+    skyzip:{rx:7,ry:7,f:["antenna","wings","arms","feet"]}, chonkle:{rx:10,ry:7,f:["cheeks","feet","belly","tuft"]},
+    brambleback:{rx:8,ry:7,f:["horns","tail","arms","feet","patch"]}, grumblet:{rx:8,ry:6,f:["spikes","tail","feet","patch","brow"]}
+  };
+  const SPECIES = {
+    puff:{}, critter:{add:["ears","whiskers"],rm:["horns"]}, birdie:{add:["beak","wings"],rm:["ears","horns","arms","cheeks"],dx:-1,dy:1},
+    dino:{add:["spikes","tail"],rm:["antenna","tuft","wings"],dx:1}, ghostie:{add:["wavy"],rm:["feet","tail","arms"]},
+    robo:{add:["bolts","antenna"],rm:["ears","tuft","spikes","horns","cheeks"],sq:true}
+  };
+  const SP_KEYS = Object.keys(SPECIES);
+  function hash(s){ let h = 2166136261; for (const c of String(s)){ h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function formKey(id){
+    if (id === BOT_ID) return "skyzip";
+    const n = Number((memberOf(id) || {}).message_count) || 0, h = hash(id);
+    return n < 10 ? "blip" : n < 50 ? CHILD[h % 2] : n < 200 ? TEEN[(h >>> 3) % 4] : ADULT[(h >>> 5) % 6];
+  }
+  function speciesKey(id){ return id === BOT_ID ? "robo" : SP_KEYS[(hash(id) >>> 9) % SP_KEYS.length]; }
+  function getForm(fk, sk){
+    const F = FORMS[fk], s = SPECIES[sk] || {};
+    const f = F.f.filter(x => !(s.rm || []).includes(x)); (s.add || []).forEach(a => { if (!f.includes(a)) f.push(a); });
+    return { rx:Math.max(3, F.rx + (s.dx || 0)), ry:F.ry + (s.dy || 0), f, sq:!!s.sq };
+  }
+  function petColor(id){ return colorOf(id) || (id === BOT_ID ? "#8ec9ff" : ["#ffd36e","#8fd16a","#7fd3ff","#ffb3c7","#b39ddb","#ffc98a"][hash(id) % 6]); }
+
+  /* pixel buffer */
+  let G = null, PEN = 1, FPEN = 0;
+  const scr = (w, h) => ({ w, h, buf:new Uint8Array(w * h), col:new Uint8Array(w * h), fb:new Uint8Array(w * h) });
+  function P(x, y, v = 1){ x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= G.w || y >= G.h) return; const i = y * G.w + x; if (v){ G.buf[i] = 1; G.col[i] = PEN; } else { G.buf[i] = 0; G.fb[i] = FPEN; } }
+  function clear(){ G.buf.fill(0); G.col.fill(0); G.fb.fill(0); }
+  function rect(x, y, w, h, v = 1){ for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) P(x + i, y + j, v); }
+  function box(x, y, w, h){ for (let i = 0; i < w; i++){ P(x + i, y); P(x + i, y + h - 1); } for (let j = 0; j < h; j++){ P(x, y + j); P(x + w - 1, y + j); } }
+  function blit(rows, x, y, pen){ const k = PEN; PEN = pen; rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === "#") P(x + i, y + j); }); PEN = k; }
+  function ellipse(cx, cy, rx, ry, fill){
+    if (fill !== undefined){ for (let y = -ry; y <= ry; y++){ const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry)))); for (let x = -w; x <= w; x++) P(cx + x, cy + y, fill); } return; }
+    const n = Math.ceil(Math.max(rx, ry) * 8); for (let k = 0; k < n; k++){ const a = k / n * Math.PI * 2; P(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry); }
+  }
+  const SPR = {
+    heart:[".#.#.","#####","#####",".###.","..#.."], bang:["#","#","#",".","#"], q:["##.","..#",".#.","...",".#."],
+    z:["###","..#",".#.","#..","###"], dots:["#.#.#"]
+  };
+  function drawPet(F, cx, by, o){
+    const rx = F.rx, ry = F.ry, has = k => F.f.includes(k);
+    const face = o.face || 0, fr = o.frame || 0, expr = o.expr || "norm", side = face || 1;
+    const cy = by - ry - (has("feet") || has("wavy") ? 2 : 1), top = cy - ry;
+    const yAt = dx => F.sq ? cy - ry : Math.round(cy - ry * Math.sqrt(Math.max(0, 1 - (dx * dx) / (rx * rx))));
+    PEN = 2;
+    if (has("tail")) [[0,2],[1,2],[2,1],[2,0],[1, fr % 2 ? 0 : -1]].forEach(([dx, dy]) => P(cx - side * (rx + 1 + dx), cy + dy));
+    if (has("wings")){ const up = fr % 2; for (const s of [-1, 1]) [[1,0],[2,-1-up],[3,-2-up],[3,-1],[2,0],[1,1]].forEach(([dx, dy]) => P(cx + s * (rx + dx), cy + dy - 1)); }
+    FPEN = 3;
+    if (F.sq) rect(cx - rx + 1, cy - ry + 1, 2 * rx - 1, 2 * ry - 1, 0); else ellipse(cx, cy, rx, ry, 0);
+    if (has("belly")){ const brx = Math.max(2, Math.round(rx * .45)), bry = Math.max(1, Math.round(ry * .3)); FPEN = 4; ellipse(cx, cy + ry - bry, brx, bry, 0); }
+    FPEN = 0; PEN = 2;
+    if (F.sq){ for (let i = -rx + 1; i <= rx - 1; i++){ P(cx + i, cy - ry); P(cx + i, cy + ry); } for (let j = -ry + 1; j <= ry - 1; j++){ P(cx - rx, cy + j); P(cx + rx, cy + j); } }
+    else ellipse(cx, cy, rx, ry);
+    if (has("feet")){ const fx = Math.max(1, Math.round(rx * .5)); for (const s of [-1, 1]){ P(cx + s * fx, cy + ry + 1); P(cx + s * (fx + 1), cy + ry + 1); } }
+    if (has("wavy")) for (let dx = -rx + 1; dx <= rx - 1; dx++) if ((dx + fr) & 1) P(cx + dx, cy + ry + 1);
+    if (has("ears")){ const ex = Math.round(rx * .55); for (const s of [-1, 1]){ const x = cx + s * ex, b = yAt(ex); [[0,-1],[0,-2],[1,-3],[2,-2],[2,-1]].forEach(([dx, dy]) => P(x + s * dx, b + dy)); } }
+    if (has("horns")){ const hx = Math.round(rx * .45); for (const s of [-1, 1]){ const x = cx + s * hx, b = yAt(hx); P(x, b - 1); P(x + s, b - 2); P(x + s * 2, b - 3); } }
+    if (has("antenna")){ P(cx, top - 1); P(cx, top - 2); PEN = 9; rect(cx - 1 + fr % 2, top - 4, 2, 2); PEN = 2; }
+    if (has("tuft")){ P(cx, top - 1); P(cx + 1, top - 2); P(cx, top - 3); }
+    if (has("spikes")) for (let dx = -rx + 2; dx <= rx - 2; dx += 3){ const y = yAt(dx); P(cx + dx, y - 1); P(cx + dx, y - 2); }
+    if (has("crown")) blit(["#.#.#","#####"], cx - 2, top - 3, 19);
+    if (has("arms")){ const w = o.wave && fr % 2; for (const s of [-1, 1]){ P(cx + s * (rx + 1), cy + 1); P(cx + s * (rx + 2), cy + (w ? 0 : 1)); if (w) P(cx + s * (rx + 2), cy - 1); } }
+    if (has("bolts")){ PEN = 8; for (const s of [-1, 1]){ P(cx + s * (rx + 1), cy - 1); P(cx + s * (rx + 1), cy); } PEN = 2; }
+    if (has("belly")){ const brx = Math.max(2, Math.round(rx * .45)), bry = Math.max(1, Math.round(ry * .3)), n = brx * 6; for (let k = 0; k <= n; k++){ const a = Math.PI + k / n * Math.PI; P(cx + Math.cos(a) * brx, cy + ry + Math.sin(a) * bry * 2); } }
+    if (has("patch")){ const x0 = cx - side * Math.round(rx * .55); P(x0, cy - 1); P(x0 - side, cy); P(x0, cy + 1); P(x0 + side, cy + 2); }
+    const sh = face * (rx > 5 ? 1 : 0), edx = Math.max(2, Math.round(rx * .42)), ey = cy - Math.round(ry * .25);
+    for (const s of [-1, 1]){
+      const x = cx + sh + s * edx; PEN = 1;
+      if (expr === "blink"){ P(x - 1, ey + 1); P(x, ey + 1); }
+      else if (expr === "sleep"){ P(x - 1, ey + 1); P(x, ey + 1); P(x + 1, ey + 1); }
+      else if (expr === "happy"){ P(x - 1, ey + 1); P(x, ey); P(x + 1, ey + 1); }
+      else if (expr === "sad"){ P(x, ey + 1); P(x - s, ey - 1); P(x + s, ey); }
+      else { P(x, ey); P(x, ey + 1); }
+      if (has("brow") && expr !== "sleep"){ P(x - s, ey - 1); P(x + s, ey - 2); }
+      if (has("cheeks")){ PEN = 5; P(cx + sh + s * (edx + 1), ey + 2); }
+      if (has("whiskers")){ PEN = 1; P(cx + s * (rx + 1), ey + 1); P(cx + s * (rx + 2), ey + 1); P(cx + s * (rx + 1), ey + 3); P(cx + s * (rx + 2), ey + 4); }
+    }
+    const mx = cx + sh, my = ey + (ry >= 5 ? 3 : 2);
+    const m = o.mouth || ({ happy:"grin", sad:"frown", sleep:"none" }[expr] || "smile");
+    if (has("beak")){ PEN = 20; if (m === "open" || m === "grin"){ P(mx - 1, my); P(mx, my); P(mx + 1, my); P(mx - 1, my + 2); P(mx, my + 2); P(mx + 1, my + 2); } else { P(mx - 1, my); P(mx, my); P(mx + 1, my); P(mx, my + 1); } return; }
+    PEN = 1;
+    if (m === "smile"){ P(mx - 1, my); P(mx, my + 1); P(mx + 1, my); }
+    else if (m === "grin"){ P(mx - 2, my); P(mx - 1, my + 1); P(mx, my + 1); P(mx + 1, my + 1); P(mx + 2, my); }
+    else if (m === "frown"){ P(mx - 1, my + 1); P(mx, my); P(mx + 1, my + 1); }
+    else if (m === "open") box(mx - 1, my, 3, 3);
+    else if (m === "chew"){ P(mx - 1, my + 1); P(mx, my + 1); P(mx + 1, my + 1); }
+  }
+  function hx(h){ const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function mix(a, b, t){ const x = hx(a), y = hx(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
+  function paint(cv, ps, fill, dim){
+    const c = cv.getContext("2d"), W = G.w, H = G.h;
+    const bg = dim ? "#8f9c88" : "#c3cdb3", pal = { 1:"#1d2a2c", 2:mix(fill, "#000000", .58), 3:fill, 4:mix(fill, "#ffffff", .55), 5:"#ff8fb1", 8:"#8c939e", 9:"#e8384f", 19:"#f2b707", 20:"#ff9a2e", 21:"#2a6fdb" };
+    c.fillStyle = bg; c.fillRect(0, 0, W * ps, H * ps);
+    c.fillStyle = "rgba(29,42,44,.07)";
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!G.buf[j * W + i] && !G.fb[j * W + i]) c.fillRect(i * ps + 1, j * ps + 1, ps - 1, ps - 1);
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++){
+      const k = j * W + i;
+      if (G.buf[k]){ c.fillStyle = pal[G.col[k]] || pal[1]; c.fillRect(i * ps + 1, j * ps + 1, ps - 1, ps - 1); }
+      else if (G.fb[k]){ c.fillStyle = pal[G.fb[k]]; c.fillRect(i * ps, j * ps, ps, ps); }
+    }
+  }
+
+  /* member tiles, cached until the pet or its color changes */
+  const tileCache = new Map(), tileScr = scr(32, 32), tileCv = document.createElement("canvas");
+  tileCv.width = tileCv.height = 128;
+  function key(id){ return formKey(id) + ":" + speciesKey(id) + ":" + petColor(id); }
+  function tile(id){
+    const k = key(id); if (tileCache.has(k)) return tileCache.get(k);
+    const keep = G; G = tileScr; clear(); PEN = 1; FPEN = 0;
+    drawPet(getForm(formKey(id), speciesKey(id)), 16, 29, { expr:"happy" });
+    paint(tileCv, 4, petColor(id), false);
+    const url = tileCv.toDataURL("image/png"); tileCache.set(k, url); G = keep; return url;
+  }
+
+  /* your pet in the header */
+  const cv = document.getElementById("tomaPet"), hdr = scr(56, 24);
+  let x = 28, face = 1, f = 0, evt = null, lastAct = Date.now();
+  const FED = "katTomaFed";
+  if (!load(FED)) store(FED, String(Date.now()));
+  function event(kind, ms){ evt = { kind, until:Date.now() + (ms || 2600) }; lastAct = Date.now(); if (kind === "sent") store(FED, String(Date.now())); }
+  function incoming(m){
+    const nm = myId && nameOf(myId);
+    const tagged = nm && nm !== "Someone" && new RegExp("@" + nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(m.text || "");
+    event(tagged ? "mention" : "incoming", tagged ? 4000 : 2200);
+  }
+  function drawEgg(cx, by, wob){
+    const c = cx + wob, cy = by - 8; FPEN = 4; ellipse(c, cy, 5, 7, 0); FPEN = 0; PEN = 1; ellipse(c, cy, 5, 7);
+    PEN = 21; for (let i = -4; i <= 4; i++) P(c + i, cy + ((i & 1) ? 0 : 1)); P(c - 2, cy - 4); P(c + 2, cy - 3); P(c, cy + 4); PEN = 1;
+  }
+  function frame(){
+    if (root.dataset.skin !== "tomatomo" || document.hidden || !cv) return;
+    f++; G = hdr; clear(); PEN = 1; FPEN = 0;
+    const now = Date.now(), ev = evt && evt.until > now ? evt : null, slow = Math.floor(f / 4);
+    if (!inChat || !myId){ drawEgg(28, 23, f % 12 < 2 ? (f % 2 ? 1 : -1) : 0); paint(cv, 4, "#ffd36e", root.dataset.mode === "night"); return; }
+    const F = getForm(formKey(myId), speciesKey(myId));
+    const hr = new Date().getHours();
+    const sleeping = !ev && (hr >= 23 || hr < 6) && now - lastAct > 15 * 60000;
+    const hungry = now - Number(load(FED) || now) > 12 * 3600000;
+    const pad = F.rx + 3 + (F.f.includes("tail") ? 3 : 0) + (F.f.includes("wings") || F.f.includes("whiskers") ? 3 : 0);
+    if (f % 4 === 0 && !sleeping && !(ev && ev.kind === "sent")){
+      const r = Math.random();
+      if (ev && (ev.kind === "incoming" || ev.kind === "mention")) face = 1;
+      else if (r < .15) face = -face;
+      else if (r < .65) x += face;
+      if (x < pad){ x = pad; face = 1; } if (x > 56 - pad - 6){ x = 56 - pad - 6; face = -1; }
+    }
+    let expr = "norm", mouth, hop = 0, wave = false;
+    if (sleeping) expr = "sleep";
+    else if (ev){
+      if (ev.kind === "sent"){ expr = "happy"; mouth = f % 4 < 2 ? "open" : "chew"; }
+      else if (ev.kind === "mention"){ expr = "happy"; hop = f % 4 < 2 ? 2 : 0; }
+      else if (ev.kind === "heart" || ev.kind === "pet"){ expr = "happy"; wave = true; hop = ev.kind === "pet" && f % 4 < 2 ? 1 : 0; }
+    }
+    else if (hungry) expr = "sad";
+    else if (f % 31 < 2) expr = "blink";
+    drawPet(F, x, 23 - hop, { face:sleeping ? 0 : face, frame:slow, expr, mouth, wave });
+    const top = 23 - hop - F.ry * 2 - 3, ix = Math.min(51, x + F.rx + 3);
+    if (sleeping) blit(SPR.z, ix, Math.max(0, top + 2 - slow % 3), 21);
+    else if (ev && ev.kind === "mention"){ if (f % 4 < 3){ blit(SPR.bang, ix, Math.max(0, top), 9); blit(SPR.bang, ix + 2, Math.max(0, top), 9); } }
+    else if (ev && ev.kind === "incoming") blit(SPR.bang, ix, Math.max(0, top), 21);
+    else if (ev && (ev.kind === "heart" || ev.kind === "pet" || ev.kind === "sent")) blit(SPR.heart, ix, Math.max(0, top + 2 - slow % 3), 9);
+    else if (typeof botThinking !== "undefined" && botThinking) blit(SPR.q, ix, Math.max(0, top), 21);
+    else if (typeof typingText !== "undefined" && typingText){ if (slow % 2) blit(SPR.dots, Math.max(0, x - 2), Math.max(0, top - 1), 1); }
+    paint(cv, 4, petColor(myId), root.dataset.mode === "night");
+  }
+  if (cv) cv.addEventListener("click", () => event("pet", 1600));
+  setInterval(frame, 140);
+  return { tile, key, event, incoming };
+})();
+
 /* Menu, skins, day and night */
 function paintPicks(){
   document.querySelectorAll(".skin").forEach(b => b.setAttribute("aria-pressed", b.dataset.pick === root.dataset.skin ? "true" : "false"));
   document.querySelectorAll("[data-mode-pick]").forEach(b => b.setAttribute("aria-pressed", b.dataset.modePick === root.dataset.mode ? "true" : "false"));
 }
-document.querySelectorAll(".skin").forEach(b => b.addEventListener("click", () => { root.dataset.skin = b.dataset.pick; store("katSkin", b.dataset.pick); paintPicks(); }));
+document.querySelectorAll(".skin").forEach(b => b.addEventListener("click", () => { root.dataset.skin = b.dataset.pick; store("katSkin", b.dataset.pick); paintPicks(); renderRail(); render(); }));
 document.querySelectorAll("[data-mode-pick]").forEach(b => b.addEventListener("click", () => { root.dataset.mode = b.dataset.modePick; store("katMode", b.dataset.modePick); paintPicks(); }));
 paintPicks();
 function openMenu(){ closeSheet(); $("#drawer").hidden = false; $("#scrim").hidden = false; $("#menuBtn").setAttribute("aria-expanded", "true"); $("#closeBtn").focus(); }
@@ -719,6 +965,11 @@ paintSound();
 const avUrl = {};
 function avatarEl(id, size){
   const wrap = el("span", "avwrap");
+  if (root.dataset.skin === "tomatomo"){
+    const t = el("span", "av toma"); t.style.width = t.style.height = size + "px";
+    const img = document.createElement("img"); img.src = TOMA.tile(id); img.alt = ""; t.append(img);
+    wrap.append(t, el("i", "od")); return wrap;
+  }
   const d = el("span", "av"); d.style.width = d.style.height = size + "px";
   const col = colorOf(id);
   d.style.setProperty("--ring", col || "var(--line)");
@@ -1488,7 +1739,7 @@ function bubbleEl(m, flags){
   const b = el("div", "bubble"); b.title = fmtTime(m.at);
   if (m.deleted){ b.classList.add("gone"); b.textContent = "Message deleted"; return b; }
   const col = colorOf(m.from);
-  if (col){ b.style.background = col; b.style.color = inkFor(col); b.style.borderColor = "transparent"; }
+  if (col){ b.style.background = col; b.style.color = inkFor(col); b.style.borderColor = "transparent"; b.style.setProperty("--pc", col); }
   if (m.reply){
     const t = msgById(m.reply);
     const q = btn("quote"); q.append(el("b", null, t ? (t.from === myId ? "You" : nameOf(t.from)) : "Reply"), snippet(t));
@@ -1514,7 +1765,7 @@ function setPart(wrap, key, node, after){
 function updateWrap(wrap, m, cont){
   const mine = m.from === myId;
   const replyTarget = m.reply ? msgById(m.reply) : null;
-  const metaSig = [cont, nameOf(m.from), colorOf(m.from), avatarKey(m.from), m.edited, m.deleted, m.at].join("~");
+  const metaSig = [cont, nameOf(m.from), colorOf(m.from), avatarKey(m.from), m.edited, m.deleted, m.at, root.dataset.skin, root.dataset.skin === "tomatomo" ? TOMA.key(m.from) : ""].join("~");
   const bubSig = [m.text, m.path, m.deleted, colorOf(m.from), m.reply, replyTarget ? replyTarget.text + replyTarget.deleted + nameOf(replyTarget.from) : "", mentionNames().join(","), nameOf(myId)].join("~");
   const actSig = pickerFor === m.id ? "open~" + reactSig(m) + isOwner() : "";
   const rxSig = reactSig(m) + "~" + mentionNames().length;
@@ -1630,7 +1881,7 @@ $("#form").addEventListener("submit", async e => {
   const { data, error } = await insertPadded("chat_messages", row, true);
   if (error){ showNote("Message didn't send. Check your connection and try again."); }
   else {
-    const nm = toMsg(data); justSent = true; unreadMark = null; addMsg(nm); bumpStats(nm);
+    const nm = toMsg(data); justSent = true; unreadMark = null; addMsg(nm); bumpStats(nm); TOMA.event("sent");
     if (/@claude\b/i.test(nm.text) && profiles[BOT_ID]) askClaude(nm.id);
     text.value = ""; text.style.height = "auto"; setTyping(false); showNote(""); if (ctx) endCtx();
   }
@@ -2163,7 +2414,7 @@ async function enterChat(justJoined){
       if (!fresh) return;
       noteIncoming(nm); addMsg(nm); bumpStats(nm);
       if (nm.from === BOT_ID) setBotThinking(false);
-      if (nm.from !== myId){ playSound(); if (nm.from !== BOT_ID) refreshProfile(nm.from); }
+      if (nm.from !== myId){ playSound(); TOMA.incoming(nm); if (nm.from !== BOT_ID) refreshProfile(nm.from); }
     })
     .on("broadcast", { event: "claude" }, p => setBotThinking(!!(p.payload && p.payload.on)))
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages" }, p => {
@@ -2171,7 +2422,7 @@ async function enterChat(justJoined){
       if (msgById(p.new.id)){ addMsg(toMsg(p.new)); refreshMembers(); }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_reactions" }, p => {
-      if (msgById(p.new.message_id)){ addReact(p.new); render(); }
+      if (msgById(p.new.message_id)){ addReact(p.new); render(); const rm = msgById(p.new.message_id); if (rm && rm.from === myId && p.new.user_id !== myId) TOMA.event("heart"); }
       const mm = memberOf(p.new.user_id); if (mm) mm.reaction_count = (Number(mm.reaction_count) || 0) + 1;
     })
     .on("postgres_changes", { event: "DELETE", schema: "public", table: "chat_reactions" }, p => { removeReact(p.old); render(); })

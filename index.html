@@ -341,27 +341,27 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 .tomapet{display:none}
 .swatch.tomatomo{background:radial-gradient(circle at 35% 35%, #c3cdb3 30%, #3f86ea 32%)}
 [data-skin="tomatomo"] .app{width:calc(100% - 16px);max-width:640px;height:calc(100% - 16px);margin:8px auto;padding:12px 14px 4px;border-radius:30px 30px 38px 38px;
-  background:linear-gradient(155deg,rgba(146,196,255,.96) 0%,rgba(64,134,234,.96) 46%,rgba(28,88,192,.98) 100%);
+  background:var(--toma-shell,linear-gradient(155deg,rgba(146,196,255,.96) 0%,rgba(64,134,234,.96) 46%,rgba(28,88,192,.98) 100%));
   box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -8px 18px rgba(8,34,96,.38),inset 0 0 0 2px rgba(255,255,255,.2),0 18px 30px -14px rgba(23,63,143,.5)}
 [data-skin="tomatomo"] header{border-bottom:none;padding-block:2px 8px}
 [data-skin="tomatomo"] .cat{display:none}
 [data-skin="tomatomo"] .tomapet{display:block;flex:none;width:112px;height:48px;image-rendering:pixelated;border:5px solid var(--bezel);border-radius:8px;background:var(--lcd);cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.45);-webkit-tap-highlight-color:transparent}
-[data-skin="tomatomo"] h1{color:#fff;font-size:.78rem;white-space:normal;letter-spacing:.04em;text-shadow:0 1px 0 rgba(8,34,96,.35)}
-[data-skin="tomatomo"] h1 span{color:#d6e6ff}
-[data-skin="tomatomo"] .sub{color:#dfeaff;font-size:.68rem}
+[data-skin="tomatomo"] h1{color:var(--toma-text,#fff);font-size:.78rem;white-space:normal;letter-spacing:.04em;text-shadow:0 1px 0 rgba(8,34,96,.35)}
+[data-skin="tomatomo"] h1 span{color:var(--toma-text-soft,#d6e6ff)}
+[data-skin="tomatomo"] .sub{color:var(--toma-text-soft,#dfeaff);font-size:.68rem}
 [data-skin="tomatomo"] .dot{box-shadow:0 0 8px var(--live-glow)}
 [data-skin="tomatomo"] .menubtn{background:linear-gradient(#f8fbff,#dce7f8);border:0;color:#173f8f;border-radius:14px;box-shadow:0 3px 0 #7d98c8}
 [data-skin="tomatomo"] .menubtn:active{transform:translateY(2px);box-shadow:0 1px 0 #7d98c8}
 [data-skin="tomatomo"] .drawer .menubtn,[data-skin="tomatomo"] .sheet .menubtn,[data-skin="tomatomo"] .ctxbar .menubtn{box-shadow:0 2px 0 #b6c6e2}
 [data-skin="tomatomo"] .rail{border-bottom:none;padding-top:4px}
-[data-skin="tomatomo"] .person .nm{color:#e8f0ff;font-family:var(--display);font-size:.55rem}
-[data-skin="tomatomo"] .person.on .nm{color:#fff}
+[data-skin="tomatomo"] .person .nm{color:var(--toma-text-soft,#e8f0ff);font-family:var(--display);font-size:.55rem}
+[data-skin="tomatomo"] .person.on .nm{color:var(--toma-text,#fff)}
 [data-skin="tomatomo"] .person:hover{background:rgba(255,255,255,.15)}
 [data-skin="tomatomo"] .av.toma{border-radius:8px;background:var(--lcd);box-shadow:0 0 0 3px var(--bezel)}
 [data-skin="tomatomo"] .av.toma img{image-rendering:pixelated}
 [data-skin="tomatomo"] .avwrap .od{border-color:var(--bezel);box-shadow:0 0 6px var(--live-glow)}
 [data-skin="tomatomo"] #lane{background-color:var(--lcd);background-image:linear-gradient(var(--lcd-ghost) 1px,transparent 1px),linear-gradient(90deg,var(--lcd-ghost) 1px,transparent 1px);background-size:4px 4px;
-  border:7px solid var(--bezel);border-radius:14px;padding:12px 10px;box-shadow:inset 0 2px 8px rgba(0,0,0,.22),0 1px 0 rgba(255,255,255,.45)}
+  border:7px solid var(--bezel);border-radius:14px;padding:12px 10px;box-shadow:inset 0 2px 8px rgba(0,0,0,.22),0 1px 0 rgba(255,255,255,.45);font-size:calc(15px * var(--toma-size,1))}
 [data-skin="tomatomo"] #lane .meta{color:var(--lcd-ink);font-family:var(--display);font-size:.6rem}
 [data-skin="tomatomo"] .day{background:transparent;color:var(--lcd-ink);border:2px solid var(--lcd-ink);border-radius:2px;font-size:.6rem}
 [data-skin="tomatomo"] .empty,[data-skin="tomatomo"] .empty b{color:var(--lcd-ink)}
@@ -369,14 +369,14 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 [data-skin="tomatomo"] .newline{color:var(--lcd-ink);font-family:var(--display)}
 [data-skin="tomatomo"] .newline::before,[data-skin="tomatomo"] .newline::after{background:var(--lcd-ink)}
 [data-skin="tomatomo"] .bubble{background:rgba(255,255,255,.4)!important;color:var(--lcd-ink)!important;border:2px solid var(--lcd-ink)!important;border-radius:4px!important;box-shadow:inset 5px 0 0 var(--pc,transparent),3px 3px 0 rgba(29,42,44,.2)}
-[data-skin="tomatomo"] .msg.me .bubble{background:var(--lcd-ink)!important;color:#e9f2dc!important;box-shadow:3px 3px 0 rgba(29,42,44,.2)}
+[data-skin="tomatomo"] .msg.me .bubble{background:var(--lcd-ink)!important;color:var(--lcd-hi,#e9f2dc)!important;box-shadow:3px 3px 0 rgba(29,42,44,.2)}
 [data-skin="tomatomo"] .msg.tagged .bubble{box-shadow:0 0 0 3px #2a6fdb,3px 3px 0 rgba(29,42,44,.2)}
 [data-skin="tomatomo"] .bubble.gone{background:transparent!important;border-style:dashed!important}
 [data-skin="tomatomo"] .rchip{border:2px solid var(--lcd-ink);border-radius:4px;background:rgba(255,255,255,.5);color:var(--lcd-ink)}
 [data-skin="tomatomo"] .rchip.mine{border-color:#2a6fdb;background:rgba(42,111,219,.18)}
 [data-skin="tomatomo"] .older{border:2px solid var(--lcd-ink);border-radius:4px;background:rgba(255,255,255,.4);color:var(--lcd-ink);font-family:var(--display);font-size:.65rem}
-[data-skin="tomatomo"] .typing{color:#fff;font-family:var(--display);font-size:.6rem;padding-top:4px}
-[data-skin="tomatomo"] .note{color:#eaf1ff}
+[data-skin="tomatomo"] .typing{color:var(--toma-text,#fff);font-family:var(--display);font-size:.6rem;padding-top:4px}
+[data-skin="tomatomo"] .note{color:var(--toma-text-soft,#eaf1ff)}
 [data-skin="tomatomo"] form.composer{border-top:none;padding-block:4px 14px}
 [data-skin="tomatomo"] textarea{background:#f6f9ff;border:3px solid var(--bezel);border-radius:12px;color:#1a2333}
 [data-skin="tomatomo"] .attach{background:linear-gradient(#f8fbff,#dce7f8);border:0;color:#173f8f;border-radius:14px;box-shadow:0 3px 0 #7d98c8}
@@ -385,6 +385,31 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 [data-skin="tomatomo"] .send{background:linear-gradient(#fff6e0,#ffd98a);color:#5a3a00;box-shadow:0 3px 0 #c99a3a;border-radius:18px;font-size:.8rem;letter-spacing:.04em}
 [data-skin="tomatomo"] .update{background:#fff;color:#173f8f;font-family:var(--display);font-size:.7rem}
 [data-skin="tomatomo"] .ctxbar{border:3px solid var(--bezel)}
+
+.hingebar,.qwerty{display:none}
+[data-skin="tomatomo"][data-toma-pixel="dots"] #lane{background-image:radial-gradient(var(--lcd-ghost) 1.3px,transparent 1.7px)}
+[data-skin="tomatomo"][data-toma-pixel="seamless"] #lane{background-image:none}
+[data-skin="tomatomo"][data-toma-display="rgb"] #lane{background-image:linear-gradient(#7cc6ff,#e2f4ff)}
+[data-skin="tomatomo"][data-toma-display="rgb"][data-mode="night"] #lane{background-image:linear-gradient(#34508f,#7d93c4)}
+[data-skin="tomatomo"][data-toma-display="rgb"] .bubble{background:rgba(255,255,255,.88)!important}
+[data-skin="tomatomo"][data-toma-shell="egg"] .app{border-radius:48% 48% 40% 40% / 15% 15% 9% 9%;padding-top:30px;padding-inline:22px}
+[data-skin="tomatomo"][data-toma-shell="brick"] .app{border-radius:14px}
+[data-skin="tomatomo"][data-toma-shell="brick"] .attach,[data-skin="tomatomo"][data-toma-shell="brick"] .menubtn{border-radius:50%}
+[data-skin="tomatomo"][data-toma-shell="flip"] .hingebar{display:flex;justify-content:space-between;flex:none;height:16px;margin:0 -14px 6px;padding:0 40px;background:var(--bg)}
+[data-skin="tomatomo"][data-toma-shell="flip"] .hingebar i{width:30%;border-radius:6px;background:linear-gradient(var(--toma-hinge2,#173f8f),var(--toma-hinge,#2a5fb8),var(--toma-hinge2,#173f8f))}
+[data-skin="tomatomo"][data-toma-shell="slab"] .app{border-radius:22px}
+[data-skin="tomatomo"][data-toma-shell="slab"] .attach,[data-skin="tomatomo"][data-toma-shell="slab"] .send,[data-skin="tomatomo"][data-toma-shell="slab"] .menubtn{border-radius:7px}
+[data-skin="tomatomo"][data-toma-shell="slab"] .qwerty{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;flex:none;padding:0 2px 10px;margin-top:-6px}
+[data-skin="tomatomo"][data-toma-shell="slab"] .qwerty i{height:12px;border-radius:4px;background:linear-gradient(#f8fbff,#dce7f8);box-shadow:0 2px 0 #7d98c8}
+.optrow{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.optrow .mini[aria-pressed="true"]{background:var(--orange);color:var(--mine-fg);border-color:transparent;font-weight:700}
+.lk{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);margin:2px 0 4px}
+.lk b{color:var(--fg);font-variant-numeric:tabular-nums}
+.tswatches{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 12px}
+.tswatches .sw{width:28px;height:28px}
+.tswatches .sw.mix{background:conic-gradient(#ffd36e,#8fd16a,#7fd3ff,#ffb3c7,#ffd36e)}
+.tswatches input[type=color]{width:36px;height:30px;border:1px solid var(--line);border-radius:8px;padding:2px;background:var(--panel);cursor:pointer}
+details details{margin-top:10px;background:var(--bg)}
 [data-skin="tomatomo"] .dhead .dt,[data-skin="tomatomo"] .sheet .pname,[data-skin="tomatomo"] .sheet h3,[data-skin="tomatomo"] .lock h2{font-size:1rem;color:#173f8f}
 </style>
 </head>
@@ -424,6 +449,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
     </div>
   </header>
   <nav class="rail" id="rail" aria-label="People in this chat" hidden></nav>
+  <div class="hingebar" aria-hidden="true"><i></i><i></i></div>
   <div id="lane" aria-live="polite"></div>
   <div class="typing" id="typing"></div>
   <p class="note" id="note" hidden></p>
@@ -445,6 +471,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
     <textarea id="text" rows="1" aria-label="Message"></textarea>
     <button class="send" id="sendBtn" type="submit" disabled>Launch</button>
   </form>
+  <div class="qwerty" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 </div>
 
 <div class="sheet-scrim" id="sheetScrim" hidden></div>
@@ -599,8 +626,34 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
       <div class="body">
         <p>Choose a skin, including the original Orbit look, day or night mode, and a background.</p>
         <p>Tomatomo mode turns the chat into a clear blue pocket pet handheld. The messages show on a green LCD screen, and every member is a pixel pet that grows up as they send more messages, from a tiny baby to one of several adult forms. Your own pet lives in the screen at the top. It eats when you send a message, perks up when someone writes, jumps when you are mentioned, shows a heart when someone reacts to you, wonders while Claude is thinking, and dozes late at night. Tap it to pet it. Night mode dims the screen like the backlight is off.</p>
-        <p>New messages can play a ding, a meow, or nothing.</p>
+        <p>New messages can play a ding, a meow, or nothing from the Sound section, or one of the extra sounds below.</p>
         <p>Appearance, background, sound, and notification choices are saved on each device.</p>
+        <details>
+          <summary>More sounds</summary>
+          <div class="body">
+            <p>Pick one to play for new messages. Ding, Meow and Off stay in the Sound section up top.</p>
+            <div class="optrow">
+          <button class="mini" type="button" data-sound="chirp">Chirp</button>
+          <button class="mini" type="button" data-sound="beep">Pet beep</button>
+          <button class="mini" type="button" data-sound="boop">Boop</button>
+          <button class="mini" type="button" data-sound="bubble">Bubble</button>
+          <button class="mini" type="button" data-sound="pop">Pop</button>
+          <button class="mini" type="button" data-sound="coin">Coin</button>
+          <button class="mini" type="button" data-sound="chime">Chime</button>
+          <button class="mini" type="button" data-sound="trill">Bird trill</button>
+          <button class="mini" type="button" data-sound="purr">Purr</button>
+          <button class="mini" type="button" data-sound="knock">Knock</button>
+          <button class="mini" type="button" data-sound="arcade">Arcade</button>
+            </div>
+          </div>
+        </details>
+        <details>
+          <summary>Tomatomo looks</summary>
+          <div class="body">
+            <p>Change how Tomatomo mode looks on this device. Picking anything here switches the chat to Tomatomo mode.</p>
+            <div id="tomaLookBox"></div>
+          </div>
+        </details>
       </div>
     </details>
     <details>
@@ -625,7 +678,7 @@ h1{font-size:clamp(1.02rem,4.6vw,1.35rem);white-space:nowrap}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1031t";
+const BUILD = "kat-1031u";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -700,6 +753,27 @@ function snippet(m){
 }
 
 
+/* Tomatomo looks: housing, plastic, screen and pet choices, saved on this device */
+const TOMA_DISPLAYS = { green:{label:"Green LCD",bg:"#c3cdb3",ink:"#1d2a2c"}, grey:{label:"Grey LCD",bg:"#b9bcb3",ink:"#20252a"}, blue:{label:"Blue backlight",bg:"#4d8de6",ink:"#0a1d45"}, amber:{label:"Amber",bg:"#eaa940",ink:"#3a1b04"}, paper:{label:"Paper white",bg:"#f4f1e8",ink:"#1c1c1c"}, rgb:{label:"Full color",bg:"#dff1ff",ink:"#1a2333"} };
+const TOMA_DEFAULT = { shell:"classic", color:"#3f86ea", clarity:70, size:100, display:"green", pixel:"grid", ghost:60, species:"mixed", petColor:"profile" };
+let tomaLook = (() => { try{ return Object.assign({}, TOMA_DEFAULT, JSON.parse(load("katTomaLook") || "{}")); }catch(e){ return Object.assign({}, TOMA_DEFAULT); } })();
+function thx(h){ const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function tmix(a, b, t){ const x = thx(a), y = thx(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
+function trgba(h, a){ const [r, g, b] = thx(h); return "rgba(" + r + "," + g + "," + b + "," + a + ")"; }
+function applyTomaLook(){
+  const L = tomaLook, st = root.style, D = TOMA_DISPLAYS[L.display] || TOMA_DISPLAYS.green, night = root.dataset.mode === "night";
+  const base = L.color, light = tmix(base, "#ffffff", .45), dark = tmix(base, "#000000", .32), a = 1 - L.clarity / 100 * .5;
+  st.setProperty("--toma-shell", "linear-gradient(155deg," + trgba(light, a) + " 0%," + trgba(base, a) + " 46%," + trgba(dark, Math.min(1, a + .06)) + " 100%)");
+  st.setProperty("--toma-hinge", dark); st.setProperty("--toma-hinge2", tmix(base, "#000000", .6));
+  const [r, g, b] = thx(base), lightShell = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.62;
+  st.setProperty("--toma-text", lightShell ? "#1a2333" : "#ffffff"); st.setProperty("--toma-text-soft", lightShell ? "#38445a" : "#e2ecff");
+  const lcd = night ? tmix(D.bg, "#000000", .3) : D.bg;
+  st.setProperty("--lcd", lcd); st.setProperty("--lcd-ink", D.ink); st.setProperty("--lcd-hi", tmix(lcd, "#ffffff", .6));
+  st.setProperty("--lcd-ghost", trgba(D.ink, L.ghost / 100 * .14)); st.setProperty("--toma-size", String(L.size / 100));
+  root.dataset.tomaShell = L.shell; root.dataset.tomaDisplay = L.display; root.dataset.tomaPixel = L.pixel;
+}
+applyTomaLook();
+
 /* Tomatomo skin: pixel pets. Every member gets a pet picked from their id, it grows with their message count, and your own pet lives in the header screen and reacts to the chat. */
 const TOMA = (() => {
   const CHILD = ["sprout","smudge"], TEEN = ["perkear","zippet","gruffhorn","spikelet"], ADULT = ["regalpuff","mellowtail","skyzip","chonkle","brambleback","grumblet"];
@@ -723,13 +797,13 @@ const TOMA = (() => {
     const n = Number((memberOf(id) || {}).message_count) || 0, h = hash(id);
     return n < 10 ? "blip" : n < 50 ? CHILD[h % 2] : n < 200 ? TEEN[(h >>> 3) % 4] : ADULT[(h >>> 5) % 6];
   }
-  function speciesKey(id){ return id === BOT_ID ? "robo" : SP_KEYS[(hash(id) >>> 9) % SP_KEYS.length]; }
+  function speciesKey(id){ if (id === BOT_ID) return "robo"; const pick = tomaLook.species; return pick && SPECIES[pick] ? pick : SP_KEYS[(hash(id) >>> 9) % SP_KEYS.length]; }
   function getForm(fk, sk){
     const F = FORMS[fk], s = SPECIES[sk] || {};
     const f = F.f.filter(x => !(s.rm || []).includes(x)); (s.add || []).forEach(a => { if (!f.includes(a)) f.push(a); });
     return { rx:Math.max(3, F.rx + (s.dx || 0)), ry:F.ry + (s.dy || 0), f, sq:!!s.sq };
   }
-  function petColor(id){ return colorOf(id) || (id === BOT_ID ? "#8ec9ff" : ["#ffd36e","#8fd16a","#7fd3ff","#ffb3c7","#b39ddb","#ffc98a"][hash(id) % 6]); }
+  function petColor(id){ if (id === myId && tomaLook.petColor && tomaLook.petColor !== "profile") return tomaLook.petColor; return colorOf(id) || (id === BOT_ID ? "#8ec9ff" : ["#ffd36e","#8fd16a","#7fd3ff","#ffb3c7","#b39ddb","#ffc98a"][hash(id) % 6]); }
 
   /* pixel buffer */
   let G = null, PEN = 1, FPEN = 0;
@@ -798,14 +872,17 @@ const TOMA = (() => {
   function hx(h){ const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
   function mix(a, b, t){ const x = hx(a), y = hx(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
   function paint(cv, ps, fill, dim){
-    const c = cv.getContext("2d"), W = G.w, H = G.h;
-    const bg = dim ? "#8f9c88" : "#c3cdb3", pal = { 1:"#1d2a2c", 2:mix(fill, "#000000", .58), 3:fill, 4:mix(fill, "#ffffff", .55), 5:"#ff8fb1", 8:"#8c939e", 9:"#e8384f", 19:"#f2b707", 20:"#ff9a2e", 21:"#2a6fdb" };
+    const c = cv.getContext("2d"), W = G.w, H = G.h, D = TOMA_DISPLAYS[tomaLook.display] || TOMA_DISPLAYS.green;
+    const bg = dim ? mix(D.bg, "#000000", .3) : D.bg, ink = D.ink;
+    const pal = { 1:ink, 2:mix(fill, "#000000", .58), 3:fill, 4:mix(fill, "#ffffff", .55), 5:"#ff8fb1", 8:"#8c939e", 9:"#e8384f", 19:"#f2b707", 20:"#ff9a2e", 21:"#2a6fdb" };
+    const style = tomaLook.pixel, gap = style === "seamless" ? 0 : 1;
+    const cell = style === "dots" ? (i, j) => { c.beginPath(); c.arc(i * ps + ps / 2, j * ps + ps / 2, ps * .46, 0, 6.2832); c.fill(); } : (i, j) => c.fillRect(i * ps + gap, j * ps + gap, ps - gap, ps - gap);
     c.fillStyle = bg; c.fillRect(0, 0, W * ps, H * ps);
-    c.fillStyle = "rgba(29,42,44,.07)";
-    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!G.buf[j * W + i] && !G.fb[j * W + i]) c.fillRect(i * ps + 1, j * ps + 1, ps - 1, ps - 1);
+    const ga = tomaLook.ghost / 100 * .14;
+    if (ga > 0){ const [r, g, b] = hx(ink); c.fillStyle = "rgba(" + r + "," + g + "," + b + "," + ga + ")"; for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (!G.buf[j * W + i] && !G.fb[j * W + i]) cell(i, j); }
     for (let j = 0; j < H; j++) for (let i = 0; i < W; i++){
       const k = j * W + i;
-      if (G.buf[k]){ c.fillStyle = pal[G.col[k]] || pal[1]; c.fillRect(i * ps + 1, j * ps + 1, ps - 1, ps - 1); }
+      if (G.buf[k]){ c.fillStyle = pal[G.col[k]] || pal[1]; cell(i, j); }
       else if (G.fb[k]){ c.fillStyle = pal[G.fb[k]]; c.fillRect(i * ps, j * ps, ps, ps); }
     }
   }
@@ -813,7 +890,7 @@ const TOMA = (() => {
   /* member tiles, cached until the pet or its color changes */
   const tileCache = new Map(), tileScr = scr(32, 32), tileCv = document.createElement("canvas");
   tileCv.width = tileCv.height = 128;
-  function key(id){ return formKey(id) + ":" + speciesKey(id) + ":" + petColor(id); }
+  function key(id){ return [formKey(id), speciesKey(id), petColor(id), tomaLook.display, tomaLook.pixel, tomaLook.ghost].join(":"); }
   function tile(id){
     const k = key(id); if (tileCache.has(k)) return tileCache.get(k);
     const keep = G; G = tileScr; clear(); PEN = 1; FPEN = 0;
@@ -875,7 +952,7 @@ const TOMA = (() => {
   }
   if (cv) cv.addEventListener("click", () => event("pet", 1600));
   setInterval(frame, 140);
-  return { tile, key, event, incoming };
+  return { tile, key, event, incoming, species:Object.keys(SPECIES) };
 })();
 
 /* Menu, skins, day and night */
@@ -884,8 +961,56 @@ function paintPicks(){
   document.querySelectorAll("[data-mode-pick]").forEach(b => b.setAttribute("aria-pressed", b.dataset.modePick === root.dataset.mode ? "true" : "false"));
 }
 document.querySelectorAll(".skin").forEach(b => b.addEventListener("click", () => { root.dataset.skin = b.dataset.pick; store("katSkin", b.dataset.pick); paintPicks(); renderRail(); render(); }));
-document.querySelectorAll("[data-mode-pick]").forEach(b => b.addEventListener("click", () => { root.dataset.mode = b.dataset.modePick; store("katMode", b.dataset.modePick); paintPicks(); }));
+document.querySelectorAll("[data-mode-pick]").forEach(b => b.addEventListener("click", () => { root.dataset.mode = b.dataset.modePick; store("katMode", b.dataset.modePick); paintPicks(); applyTomaLook(); }));
 paintPicks();
+
+function buildTomaLookUI(){
+  const box = $("#tomaLookBox"); if (!box) return;
+  const SHELLS = [["classic","Classic"],["egg","Egg"],["brick","Brick"],["flip","Flip"],["slab","Slab"]];
+  const PIXELS = [["grid","Grid"],["dots","Dots"],["seamless","Seamless"]];
+  const HOUSING = [["Ice blue","#3f86ea"],["Grape","#7d4cdb"],["Lime","#59b83a"],["Teal","#14a3a3"],["Bubblegum","#ff7eb6"],["Sunshine","#f5c518"],["Cherry","#e0343c"],["Tangerine","#ff8a2a"],["Bone","#e6e0d2"],["Smoke","#6b7280"],["Coal","#363b47"]];
+  const PETS = [["Butter","#ffd36e"],["Mint","#8fd16a"],["Sky","#7fd3ff"],["Rose","#ffb3c7"],["Lilac","#b39ddb"],["Peach","#ffc98a"],["Coral","#ff7a6b"],["Snow","#f2f4f8"]];
+  const SPECIES = [["mixed","Mixed"]].concat(TOMA.species.map(k => [k, { puff:"Puffball", critter:"Critter", birdie:"Birdie", dino:"Dino", ghostie:"Ghostie", robo:"Robo" }[k] || k]));
+  const syncers = [];
+  function commit(){
+    store("katTomaLook", JSON.stringify(tomaLook)); applyTomaLook();
+    if (root.dataset.skin !== "tomatomo"){ root.dataset.skin = "tomatomo"; store("katSkin", "tomatomo"); paintPicks(); }
+    renderRail(); render(); syncers.forEach(f => f());
+  }
+  function label(t, valFn){ const l = el("div", "lk"); const a = el("span", null, t); l.append(a); if (valFn){ const b = el("b"); l.append(b); syncers.push(() => { b.textContent = valFn(); }); } box.append(l); }
+  function opts(key, items){
+    const row = el("div", "optrow");
+    for (const [v, t] of items){ const b = btn("mini", t, () => { tomaLook[key] = v; commit(); }); b.dataset.v = v; row.append(b); }
+    syncers.push(() => row.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === String(tomaLook[key])))));
+    box.append(row);
+  }
+  function swatches(key, items, firstOpt){
+    const row = el("div", "tswatches");
+    if (firstOpt){ const b = btn("sw " + firstOpt[2], null, () => { tomaLook[key] = firstOpt[0]; commit(); }); b.dataset.v = firstOpt[0]; b.title = firstOpt[1]; b.setAttribute("aria-label", firstOpt[1]); row.append(b); }
+    for (const [n, c] of items){ const b = btn("sw", null, () => { tomaLook[key] = c; commit(); }); b.style.background = c; b.dataset.v = c; b.title = n; b.setAttribute("aria-label", n); row.append(b); }
+    const pick = document.createElement("input"); pick.type = "color"; pick.setAttribute("aria-label", "Custom color");
+    pick.addEventListener("input", () => { tomaLook[key] = pick.value; commit(); }); row.append(pick);
+    syncers.push(() => { row.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === tomaLook[key]))); if (/^#/.test(tomaLook[key])) pick.value = tomaLook[key]; });
+    box.append(row);
+  }
+  function slider(key, min, max){
+    const r = document.createElement("input"); r.type = "range"; r.className = "slider"; r.min = min; r.max = max; r.step = 1; r.setAttribute("aria-label", key);
+    r.addEventListener("input", () => { tomaLook[key] = Number(r.value); commit(); });
+    syncers.push(() => { r.value = tomaLook[key]; }); box.append(r);
+  }
+  label("Shape"); opts("shell", SHELLS);
+  label("Plastic color"); swatches("color", HOUSING);
+  label("See-through", () => tomaLook.clarity + "%"); slider("clarity", 0, 100);
+  label("Display"); opts("display", Object.entries(TOMA_DISPLAYS).map(([k, d]) => [k, d.label]));
+  label("Pixels"); opts("pixel", PIXELS);
+  label("Ghost pixels", () => tomaLook.ghost + "%"); slider("ghost", 0, 100);
+  label("Message text size", () => tomaLook.size + "%"); slider("size", 80, 130);
+  label("Pet species"); opts("species", SPECIES);
+  label("Your pet color"); swatches("petColor", PETS, ["profile", "Use my profile color", "mix"]);
+  const reset = el("div", "dactions"); reset.append(btn("mini", "Reset Tomatomo looks", () => { tomaLook = Object.assign({}, TOMA_DEFAULT); commit(); })); box.append(reset);
+  syncers.forEach(f => f());
+}
+buildTomaLookUI();
 function openMenu(){ closeSheet(); $("#drawer").hidden = false; $("#scrim").hidden = false; $("#menuBtn").setAttribute("aria-expanded", "true"); $("#closeBtn").focus(); }
 function closeMenu(){ $("#drawer").hidden = true; $("#scrim").hidden = true; $("#menuBtn").setAttribute("aria-expanded", "false"); }
 $("#menuBtn").addEventListener("click", openMenu);
@@ -952,7 +1077,32 @@ function meow(){
   o.connect(f1); o.connect(f2); f2.connect(g2); f1.connect(g); g2.connect(g); g.connect(lp); lp.connect(actx.destination);
   o.start(t0); lfo.start(t0); o.stop(t0 + len + .05); lfo.stop(t0 + len + .05);
 }
-function playSound(){ if (soundMode === "ding") ding(); else if (soundMode === "meow") meow(); }
+function tone(f, t0, len, type, vol, f2){
+  const o = actx.createOscillator(), g = actx.createGain(); o.type = type || "sine"; o.frequency.setValueAtTime(f, t0);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + len);
+  g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(vol || .15, t0 + .01); g.gain.exponentialRampToValueAtTime(.0001, t0 + len);
+  o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + len + .05);
+}
+const EXTRA_SOUNDS = {
+  chirp: t => { tone(2093, t, .05, "square", .06); tone(2637, t + .06, .07, "square", .06); },
+  beep: t => { [0, .12, .24].forEach(d => tone(1568, t + d, .08, "square", .05)); },
+  boop: t => tone(620, t, .22, "sine", .2, 280),
+  bubble: t => { tone(300, t, .12, "sine", .18, 900); tone(500, t + .13, .1, "sine", .12, 1100); },
+  pop: t => tone(1400, t, .07, "sine", .25, 180),
+  coin: t => { tone(988, t, .08, "square", .07); tone(1319, t + .08, .35, "square", .07); },
+  chime: t => { [1047, 1319, 1568].forEach((f, i) => tone(f, t + i * .09, .9, "sine", .12)); },
+  trill: t => { for (let i = 0; i < 6; i++) tone(2400 + (i % 2) * 500, t + i * .05, .05, "sine", .1); },
+  knock: t => { tone(180, t, .09, "triangle", .4, 90); tone(180, t + .16, .09, "triangle", .4, 90); },
+  arcade: t => { [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * .06, .07, "square", .06)); },
+  purr: t => {
+    const o = actx.createOscillator(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain(), fl = actx.createBiquadFilter();
+    o.type = "sawtooth"; o.frequency.value = 48; fl.type = "lowpass"; fl.frequency.value = 380; lfo.frequency.value = 24; lg.gain.value = .1;
+    g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.14, t + .15); g.gain.linearRampToValueAtTime(.0001, t + 1);
+    lfo.connect(lg); lg.connect(g.gain); o.connect(fl); fl.connect(g); g.connect(actx.destination);
+    o.start(t); lfo.start(t); o.stop(t + 1.05); lfo.stop(t + 1.05);
+  }
+};
+function playSound(){ if (soundMode === "ding") ding(); else if (soundMode === "meow") meow(); else if (actx && EXTRA_SOUNDS[soundMode]) EXTRA_SOUNDS[soundMode](actx.currentTime); }
 function paintSound(){ document.querySelectorAll("[data-sound]").forEach(b => b.setAttribute("aria-pressed", b.dataset.sound === soundMode ? "true" : "false")); }
 document.querySelectorAll("[data-sound]").forEach(b => b.addEventListener("click", () => {
   soundMode = b.dataset.sound; store("katSound", soundMode); paintSound();

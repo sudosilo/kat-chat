@@ -8,6 +8,6 @@ Live at kat-chat-flame.vercel.app
 
 This app is checked every morning by Control Troll.
 
-Latest change. Added chess in the chat with shared live boards and watchers. Added a GIF and movie clip picker, long press menus for reactions and delete on every message, and Android notifications. Messages are padded to fixed sizes. Native Android and Windows apps are now built and released automatically. The About section covers every working feature.
+Latest change. 2026-10-31, v2026.10.31. Added extra message sounds and look controls under About. Added a Tomatomo mode skin that gives the chat a pocket pet handheld look with pixel pets for every member.
 
 See CHANGELOG.md for the full history.

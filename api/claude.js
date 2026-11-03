@@ -78,9 +78,9 @@ module.exports = async (req, res) => {
       body: JSON.stringify({ user_id: uid, day, count: mine + 1 })
     });
 
-    let q = "chat_messages?select=id,sender,body,file_name,created_at,reply_to&deleted_at=is.null&id=lte." + mid + "&order=id.desc&limit=" + CONTEXT_MESSAGES;
+    let q = "chat_messages?select=*&deleted_at=is.null&id=lte." + mid + "&order=id.desc&limit=" + CONTEXT_MESSAGES;
     if (joined && joined !== "-infinity") q += "&created_at=gte." + encodeURIComponent(joined);
-    const recent = (await db(q) || []).reverse();
+    const recent = (await db(q) || []).filter(m => !m.room || m.room === "kat").reverse();
     const names = await db("chat_names?select=id,name") || [];
     const nameOf = id => id === BOT_ID ? "Claude" : ((names.find(n => n.id === id) || {}).name || "").trim() || "Someone";
     const settings = await db("chat_settings?select=bot_note&id=eq.1") || [];

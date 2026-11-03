@@ -38,6 +38,7 @@ module.exports = async (req, res) => {
     const rows = await db("chat_messages?select=*&id=eq." + id);
     const msg = rows && rows[0];
     if (!msg || msg.deleted_at) return res.status(200).json({ skipped: "no message" });
+    if (msg.room && msg.room !== "kat") return res.status(200).json({ skipped: "other room" });
     if (Date.now() - new Date(msg.created_at).getTime() > 120000) return res.status(200).json({ skipped: "too old" });
     const logged = await db("chat_push_log?on_conflict=message_id", {
       method: "POST",

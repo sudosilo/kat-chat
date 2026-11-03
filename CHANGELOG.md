@@ -1,3 +1,5 @@
+2026-11-03, v2026.11.03. The message table now carries rooms so Field Chat inside Field Twin can share members, names and invites with this chat. This chat only shows its own room, and Field Chat messages never send Cat Command Chat notifications or reach the Claude member.
+
 2026-10-31, v2026.10.31. Added extra message sounds and look controls under About. Added a Tomatomo mode skin that gives the chat a pocket pet handheld look with pixel pets for every member.
 
 2026-10-09, v2026.10.09. Added chess in the chat with shared live boards and watchers. Added a GIF and movie clip picker, long press menus for reactions and delete on every message, and Android notifications. Messages are padded to fixed sizes. Native Android and Windows apps are now built and released automatically. The About section covers every working feature.

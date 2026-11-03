@@ -8,6 +8,6 @@ Live at kat-chat-flame.vercel.app
 
 This app is checked every morning by Control Troll.
 
-Latest change. 2026-10-31, v2026.10.31. Added extra message sounds and look controls under About. Added a Tomatomo mode skin that gives the chat a pocket pet handheld look with pixel pets for every member.
+Latest change. 2026-11-03, v2026.11.03. The message table now carries rooms so Field Chat inside Field Twin can share members, names and invites with this chat.
 
 See CHANGELOG.md for the full history.

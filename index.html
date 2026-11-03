@@ -1696,6 +1696,8 @@ function audioPlayer(setSrc, knownSec){
 /* If the database doesn't have the filler columns yet, send without them instead of failing */
 let padOn = true;
 function padMissing(err){ return !!err && (err.code === "PGRST204" || err.code === "PGRST202" || err.code === "42703" || /\bpad\b|p_pad/i.test(err.message || "")); }
+// The same message table also carries other rooms, such as Field Chat in Field Twin. This chat only shows its own room.
+function inRoom(r){ return !r || !r.room || r.room === "kat"; }
 async function insertPadded(table, row, single){
   const run = r => single ? sb.from(table).insert(r).select().single() : sb.from(table).insert(r);
   if (!padOn){ const r = { ...row }; delete r.pad; return run(r); }
@@ -1973,7 +1975,7 @@ async function loadOlder(){
   const { data } = await sb.from("chat_messages").select("*").lt("id", msgs[0].id).order("id", { ascending: false }).limit(OLDER);
   if (data){
     hasOlder = data.length === OLDER;
-    data.forEach(r => { const m = toMsg(r); if (!msgById(m.id)){ msgs.push(m); seen.add(m.id); } });
+    data.filter(inRoom).forEach(r => { const m = toMsg(r); if (!msgById(m.id)){ msgs.push(m); seen.add(m.id); } });
     msgs.sort((a, b) => a.at - b.at);
     const r = await sb.from("chat_reactions").select("message_id,user_id,emoji").in("message_id", data.map(x => x.id));
     if (r.data) r.data.forEach(addReact);
@@ -2113,7 +2115,8 @@ $("#searchBtn").addEventListener("click", () => {
     if (q.length < 2){ res.append(el("p", "hint2", "Type at least two letters.")); return; }
     res.append(el("p", "hint2", "Searching..."));
     const safe = q.replace(/[\\%_]/g, c => "\\" + c);
-    const { data, error } = await sb.from("chat_messages").select("id,sender,body,created_at").is("deleted_at", null).ilike("body", "%" + safe + "%").order("id", { ascending: false }).limit(50);
+    const found = await sb.from("chat_messages").select("*").is("deleted_at", null).ilike("body", "%" + safe + "%").order("id", { ascending: false }).limit(50);
+    const error = found.error, data = (found.data || []).filter(inRoom);
     res.textContent = "";
     if (error){ res.append(el("p", "hint2", "Search didn't work. Try again.")); return; }
     if (!data.length){ res.append(el("p", "hint2", "Nothing found.")); return; }
@@ -2199,6 +2202,7 @@ async function catchUp(){
     let fromOthers = false;
     if (data && data.length){
       for (const r of data){
+        if (!inRoom(r)) continue;
         const nm = toMsg(r); if (msgById(nm.id)) continue;
         msgs.push(nm); bumpStats(nm);
         if (nm.from !== myId){ fromOthers = true; if (lastRead && nm.id > lastRead && unreadMark === null) unreadMark = nm.id; if (!profiles[nm.from]) refreshProfile(nm.from); }
@@ -2532,7 +2536,7 @@ async function loadRecent(){
   const { data } = await sb.from("chat_messages").select("*").order("id", { ascending: false }).limit(PAGE);
   if (data){
     hasOlder = data.length === PAGE;
-    msgs = data.map(toMsg).sort((a, b) => a.at - b.at); msgs.forEach(x => seen.add(x.id));
+    msgs = data.filter(inRoom).map(toMsg).sort((a, b) => a.at - b.at); msgs.forEach(x => seen.add(x.id));
     if (msgs.length){
       const r = await sb.from("chat_reactions").select("message_id,user_id,emoji").gte("message_id", msgs[0].id).limit(5000);
       if (r.data) r.data.forEach(addReact);
@@ -2560,6 +2564,7 @@ async function enterChat(justJoined){
   }
   chan = sb.channel("cat-room", { config: { presence: { key: myId } } })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => {
+      if (!inRoom(p.new)) return;
       const nm = toMsg(p.new); const fresh = !msgById(nm.id);
       if (!fresh) return;
       noteIncoming(nm); addMsg(nm); bumpStats(nm);

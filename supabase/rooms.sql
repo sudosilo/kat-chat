@@ -1,6 +1,10 @@
--- Rooms, part one: room tables and the functions the app calls.
--- Part two (access rules on messages, reactions, names, files and games) is added after the layout snapshot.
+-- Rooms: separate chats inside Cat Command Chat. A room owner hands out room keys. People who join with a key
+-- see only that room. Safe to run more than once.
 create extension if not exists pgcrypto;
+
+-- Which chat a message belongs to. Existing messages are the main room, kat. Field Chat uses field.
+alter table chat_messages add column if not exists room text not null default 'kat';
+create index if not exists chat_messages_room_id on chat_messages (room, id desc);
 
 create table if not exists chat_rooms (
   id text primary key,
@@ -159,3 +163,73 @@ revoke execute on function room_role(text), room_joined(text), shares_room(uuid)
   room_key_new(text, int, int), room_keys(text), room_key_revoke(bigint), room_join(text), room_remove(text, uuid), room_leave(text), room_delete(text) from anon, public;
 grant execute on function room_role(text), room_joined(text), shares_room(uuid), my_rooms(), room_members(text), room_create(text),
   room_key_new(text, int, int), room_keys(text), room_key_revoke(bigint), room_join(text), room_remove(text, uuid), room_leave(text), room_delete(text) to authenticated;
+
+-- True when the signed in person belongs to at least one room.
+create or replace function in_any_room() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from chat_room_members where user_id = auth.uid())
+$$;
+revoke execute on function in_any_room() from anon, public;
+grant execute on function in_any_room() to authenticated;
+
+-- Messages: main chat members see the main rooms from when they joined. Room members see their room from when they joined.
+drop policy if exists "members read since joining" on chat_messages;
+create policy "members read since joining" on chat_messages for select to authenticated using (
+  (room in ('kat', 'field') and created_at >= my_join_time())
+  or (room like 'r-%' and created_at >= room_joined(room))
+);
+drop policy if exists "members send own" on chat_messages;
+create policy "members send own" on chat_messages for insert to authenticated with check (
+  sender = auth.uid() and created_at > now() - interval '1 minute'
+  and ((room in ('kat', 'field') and my_join_time() is not null) or (room like 'r-%' and room_role(room) is not null))
+);
+
+-- Deleting: your own messages, the main owner in the main rooms, a room owner in their room.
+create or replace function delete_message(p_id bigint) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  update chat_messages set body = '', file_path = null, file_name = null, file_size = null, file_type = null, deleted_at = now()
+    where id = p_id and deleted_at is null
+      and (sender = auth.uid()
+           or (room in ('kat', 'field') and is_owner())
+           or (room like 'r-%' and room_role(room) = 'owner'));
+  return found;
+end $$;
+
+-- Names and pictures: main members as before, plus anyone in a room.
+drop policy if exists "members read names" on chat_names;
+create policy "members read names" on chat_names for select to authenticated using (my_join_time() is not null or shares_room(id));
+drop policy if exists "members add own name" on chat_names;
+create policy "members add own name" on chat_names for insert to authenticated with check (id = auth.uid() and (my_join_time() is not null or in_any_room()));
+drop policy if exists "members edit own name" on chat_names;
+create policy "members edit own name" on chat_names for update to authenticated using (id = auth.uid() and (my_join_time() is not null or in_any_room()));
+
+drop policy if exists "members upload own files" on storage.objects;
+create policy "members upload own files" on storage.objects for insert to authenticated with check (
+  bucket_id = 'chat-files' and (storage.foldername(name))[1] = auth.uid()::text and (my_join_time() is not null or in_any_room()));
+drop policy if exists "members upload own avatar" on storage.objects;
+create policy "members upload own avatar" on storage.objects for insert to authenticated with check (
+  bucket_id = 'chat-avatars' and (storage.foldername(name))[1] = auth.uid()::text and (my_join_time() is not null or in_any_room()));
+drop policy if exists "members read avatars" on storage.objects;
+create policy "members read avatars" on storage.objects for select to authenticated using (
+  bucket_id = 'chat-avatars' and (my_join_time() is not null or in_any_room()));
+
+drop policy if exists "own push add" on chat_push;
+create policy "own push add" on chat_push for insert to authenticated with check (user_id = auth.uid() and (my_join_time() is not null or in_any_room()));
+
+-- Chess: room members can challenge each other and watch games between people in their rooms.
+drop policy if exists "members see games" on chat_games;
+create policy "members see games" on chat_games for select to authenticated using (my_join_time() is not null or shares_room(white) or shares_room(black));
+create or replace function chess_new(p_opponent uuid, p_white boolean) returns chat_games
+language plpgsql security definer set search_path = public as $$
+declare g chat_games;
+begin
+  if auth.uid() is null or p_opponent = auth.uid() then raise exception 'bad opponent'; end if;
+  if not ((my_join_time() is not null and exists (select 1 from chat_members where user_id = p_opponent)) or shares_room(p_opponent)) then
+    raise exception 'bad opponent';
+  end if;
+  insert into chat_games (white, black, created_by)
+  values (case when p_white then auth.uid() else p_opponent end, case when p_white then p_opponent else auth.uid() end, auth.uid())
+  returning * into g;
+  return g;
+end $$;

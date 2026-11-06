@@ -149,8 +149,9 @@ begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   if exists (select 1 from chat_bans where user_id = auth.uid()) then perform pg_sleep(1); return null; end if;
   select * into k from chat_room_keys where code_hash = encode(digest(lower(trim(p_code)), 'sha256'), 'hex') for update;
-  if not found or k.revoked or k.uses >= k.max_uses or (k.expires_at is not null and k.expires_at < now()) then return null; end if;
+  if not found then return null; end if;
   if exists (select 1 from chat_room_members where room = k.room and user_id = auth.uid()) then return k.room; end if;
+  if k.revoked or k.uses >= k.max_uses or (k.expires_at is not null and k.expires_at < now()) then return null; end if;
   insert into chat_room_members (room, user_id, role, invited_by) values (k.room, auth.uid(), 'member', k.created_by);
   update chat_room_keys set uses = uses + 1 where id = k.id;
   return k.room;
@@ -196,6 +197,17 @@ $$;
 revoke execute on function in_any_room() from anon, public;
 grant execute on function in_any_room() to authenticated;
 
+-- True when a profile picture folder belongs to the signed in person or to someone they share a room with.
+create or replace function avatar_visible(p_folder text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select p_folder = auth.uid()::text or (p_folder = 'c1a0de00-0000-4000-8000-000000000001' and in_any_room()) or exists (
+    select 1 from chat_room_members a join chat_room_members b on a.room = b.room
+    where a.user_id = auth.uid() and b.user_id::text = p_folder)
+$$;
+revoke execute on function avatar_visible(text) from anon, public;
+grant execute on function avatar_visible(text) to authenticated;
+
+
 -- Messages: main chat members see the main rooms from when they joined. Room members see their room from when they joined.
 drop policy if exists "members read since joining" on chat_messages;
 create policy "members read since joining" on chat_messages for select to authenticated using (
@@ -222,7 +234,8 @@ end $$;
 
 -- Names and pictures: main members as before, plus anyone in a room.
 drop policy if exists "members read names" on chat_names;
-create policy "members read names" on chat_names for select to authenticated using (my_join_time() is not null or shares_room(id));
+create policy "members read names" on chat_names for select to authenticated using (
+  my_join_time() is not null or shares_room(id) or (id = 'c1a0de00-0000-4000-8000-000000000001'::uuid and in_any_room()));
 drop policy if exists "members add own name" on chat_names;
 create policy "members add own name" on chat_names for insert to authenticated with check (id = auth.uid() and (my_join_time() is not null or in_any_room()));
 drop policy if exists "members edit own name" on chat_names;
@@ -236,9 +249,7 @@ create policy "members upload own avatar" on storage.objects for insert to authe
   bucket_id = 'chat-avatars' and (storage.foldername(name))[1] = auth.uid()::text and (my_join_time() is not null or in_any_room()));
 drop policy if exists "members read avatars" on storage.objects;
 create policy "members read avatars" on storage.objects for select to authenticated using (
-  bucket_id = 'chat-avatars' and (my_join_time() is not null or exists (
-    select 1 from chat_room_members a join chat_room_members b on a.room = b.room
-    where a.user_id = auth.uid() and b.user_id::text = (storage.foldername(name))[1])));
+  bucket_id = 'chat-avatars' and (my_join_time() is not null or avatar_visible((storage.foldername(name))[1])));
 
 drop policy if exists "own push add" on chat_push;
 create policy "own push add" on chat_push for insert to authenticated with check (user_id = auth.uid() and (my_join_time() is not null or in_any_room()));

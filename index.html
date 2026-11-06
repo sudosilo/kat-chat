@@ -499,7 +499,7 @@ details details{margin-top:10px;background:var(--bg)}
   <section class="dsec" id="roomSec" hidden>
     <p class="sh">Rooms</p>
     <div class="roomlist" id="roomList"></div>
-    <div class="dactions"><button class="mini strong" id="roomNew" type="button" hidden>Create a room</button><button class="mini" id="roomManage" type="button" hidden>Manage this room</button></div>
+    <div class="dactions"><button class="mini strong" id="roomNew" type="button" hidden>Create a room</button><button class="mini" id="roomManage" type="button" hidden>Manage this room</button><button class="mini" id="roomJoin" type="button">Join with a room key</button></div>
   </section>
 
   <section class="dsec">
@@ -703,7 +703,7 @@ details details{margin-top:10px;background:var(--bg)}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1105b";
+const BUILD = "kat-1105c";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -1153,7 +1153,7 @@ function avatarEl(id, size){
   const col = colorOf(id);
   d.style.setProperty("--ring", col || "var(--line)");
   const p = profiles[id]; const u = p && p.avatar_path && avUrl[p.avatar_path];
-  if (u){ const img = document.createElement("img"); img.src = u; img.alt = ""; img.onerror = () => { delete avUrl[p.avatar_path]; img.remove(); const n = nameOf(id); d.textContent = n === "Someone" ? "?" : [...n.trim()][0].toUpperCase(); }; d.append(img); }
+  if (u){ const img = document.createElement("img"); img.src = u; img.alt = ""; img.onerror = () => { delete avUrl[p.avatar_path]; img.remove(); const n = nameOf(id); d.textContent = n === "Someone" ? "?" : [...n.trim()][0].toUpperCase(); d.style.fontSize = Math.round(size * .42) + "px"; if (col){ d.style.background = col; d.style.color = inkFor(col); } }; d.append(img); }
   else {
     const n = nameOf(id); d.textContent = n === "Someone" ? "?" : [...n.trim()][0].toUpperCase();
     d.style.fontSize = Math.round(size * .42) + "px";
@@ -2290,7 +2290,7 @@ async function catchUp(){
     const lastId = msgs.length ? Math.max(...msgs.map(m => m.id)) : 0;
     const seq = roomSeq;
     const { data } = await roomRead(q => q.gt("id", lastId).order("id", { ascending: true }).limit(500));
-    if (seq !== roomSeq) return;
+    if (seq !== roomSeq){ catching = false; return; }
     let fromOthers = false;
     if (data && data.length){
       for (const r of data){
@@ -2316,8 +2316,8 @@ async function catchUp(){
     if (n.data){ n.data.forEach(setProfile); loadAvatars(); }
     render(); renderRail();
     if (curRoom !== MAIN_ROOM){
-      const before = curRoom; await loadRooms();
-      if (before === curRoom && !myRooms.some(r => r.id === curRoom)){ showNote("You're no longer in that room."); catching = false; leaveToNextRoom(); return; }
+      const before = curRoom; const ok = await loadRooms();
+      if (ok && before === curRoom && !myRooms.some(r => r.id === curRoom)){ showNote("You're no longer in that room."); catching = false; leaveToNextRoom(); return; }
     }
   }catch(e){}
   catching = false;
@@ -2423,9 +2423,12 @@ function curRoomInfo(){ return myRooms.find(r => r.id === curRoom) || null; }
 function amRoomOwner(){ const r = curRoomInfo(); return !!r && r.owner === myId; }
 function roomName(id){ if (id === MAIN_ROOM) return "Main room"; const r = myRooms.find(x => x.id === id); return r ? r.name : "Room"; }
 async function loadRooms(){
-  try{ const { data, error } = await sb.rpc("my_rooms"); myRooms = error ? [] : (data || []); }catch(e){ myRooms = []; }
+  let ok = false;
+  try{ const { data, error } = await sb.rpc("my_rooms"); if (!error){ myRooms = data || []; ok = true; } else if (!/function|schema|exist/i.test(error.message || "")) roomsFailed = true; else ok = true; }catch(e){ roomsFailed = true; }
   paintRooms();
+  return ok;
 }
+let roomsFailed = false;
 function paintRooms(){
   const sec = $("#roomSec"), list = $("#roomList"), chip = $("#roomChip");
   sec.hidden = !inChat && !myRooms.length;
@@ -2439,7 +2442,7 @@ function paintRooms(){
   }
   $("#roomNew").hidden = !mainMember;
   $("#roomManage").hidden = curRoom === MAIN_ROOM;
-  chip.hidden = !inChat || !myRooms.length;
+  chip.hidden = !inChat;
   chip.textContent = ""; chip.append(el("span", null, roomName(curRoom)));
   titleNow();
 }
@@ -2609,6 +2612,7 @@ async function roomDelete(){
 $("#roomChip").addEventListener("click", openRoomsSheet);
 $("#roomNew").addEventListener("click", openRoomCreate);
 $("#roomManage").addEventListener("click", openRoomSheet);
+$("#roomJoin").addEventListener("click", () => { closeMenu(); openRoomsSheet(); const k = $("#sheet input[aria-label='Room key']"); if (k) setTimeout(() => k.focus(), 50); });
 
 /* Fun picker: GIFs and movie and TV quote clips */
 function isBareMedia(t){ return /^\s*https:\/\/(?:y\.yarn\.co\/[0-9a-f-]{36}\.mp4|media\d*\.giphy\.com\/media\/[\w.\/-]+\.gif|i\.giphy\.com\/[\w.\/-]+\.gif|[\w.-]*klipy\.com\/[\w.\/%-]+\.(?:mp4|gif|webp))\s*$/i.test(t || ""); }
@@ -2918,7 +2922,13 @@ async function start(){
     setTimeout(() => location.reload(), 8000); return;
   }
   mainMember = !!mem.data; if (mem.data){ joinedAt = mem.data.joined_at; mainRole = mem.data.role || "member"; }
+  roomsFailed = false;
   await loadRooms();
+  if (roomsFailed && !mainMember){
+    $("#onlineText").textContent = "Offline";
+    showNote("Couldn't reach the chat server. Retrying...");
+    setTimeout(() => location.reload(), 8000); return;
+  }
   const saved = load("katRoom");
   if (saved && myRooms.some(r => r.id === saved)) curRoom = saved;
   else if (!mainMember && myRooms.length) curRoom = myRooms[0].id;

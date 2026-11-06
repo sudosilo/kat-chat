@@ -52,15 +52,18 @@ module.exports = async (req, res) => {
     const user = await ur.json();
     const uid = user.id;
 
-    const mem = await db("chat_members?select=joined_at&user_id=eq." + uid);
-    if (!mem || !mem.length) return send(res, 403, { error: "Only members can ask Claude." });
-    const joined = mem[0].joined_at;
-
     const mid = Number(req.body && req.body.message_id);
     if (!mid) return send(res, 400, { error: "Missing message" });
     const rows = await db("chat_messages?select=*&id=eq." + mid);
     const msg = rows && rows[0];
     if (!msg || msg.sender !== uid || msg.deleted_at) return send(res, 400, { error: "That message can't be answered." });
+    const room = msg.room || "kat";
+    if (room !== "kat" && !/^r-[0-9a-f]{10}$/.test(room)) return send(res, 400, { error: "Claude isn't in that chat." });
+    const mem = room === "kat"
+      ? await db("chat_members?select=joined_at&user_id=eq." + uid)
+      : await db("chat_room_members?select=joined_at&room=eq." + room + "&user_id=eq." + uid);
+    if (!mem || !mem.length) return send(res, 403, { error: "Only members can ask Claude." });
+    const joined = mem[0].joined_at;
     if (!/@claude\b/i.test(msg.body || "")) return send(res, 400, { error: "That message doesn't mention @Claude." });
     if (Date.now() - new Date(msg.created_at).getTime() > 5 * 60 * 1000) return send(res, 400, { error: "That message is too old to answer." });
     const already = await db("chat_messages?select=id&sender=eq." + BOT_ID + "&reply_to=eq." + mid);
@@ -78,9 +81,9 @@ module.exports = async (req, res) => {
       body: JSON.stringify({ user_id: uid, day, count: mine + 1 })
     });
 
-    let q = "chat_messages?select=*&deleted_at=is.null&id=lte." + mid + "&order=id.desc&limit=" + CONTEXT_MESSAGES;
+    let q = "chat_messages?select=*&deleted_at=is.null&room=eq." + room + "&id=lte." + mid + "&order=id.desc&limit=" + CONTEXT_MESSAGES;
     if (joined && joined !== "-infinity") q += "&created_at=gte." + encodeURIComponent(joined);
-    const recent = (await db(q) || []).filter(m => !m.room || m.room === "kat").reverse();
+    const recent = (await db(q) || []).filter(m => (m.room || "kat") === room).reverse();
     const names = await db("chat_names?select=id,name") || [];
     const nameOf = id => id === BOT_ID ? "Claude" : ((names.find(n => n.id === id) || {}).name || "").trim() || "Someone";
     const settings = await db("chat_settings?select=bot_note&id=eq.1") || [];
@@ -133,10 +136,10 @@ module.exports = async (req, res) => {
     if (sources.length) text += "\n\nSources: " + sources.slice(0, 3).join("  ");
     text = text.slice(0, 4000) || "Hmm, I lost my train of thought. Try again?";
     try{
-      await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid, pad: padFor(text) }) });
+      await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid, room, pad: padFor(text) }) });
     }catch(e){
       if (!/pad/i.test(String(e.message))) throw e;
-      await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid }) });
+      await db("chat_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ sender: BOT_ID, body: text, reply_to: mid, room }) });
     }
     return send(res, 200, { ok: true });
   }catch(e){

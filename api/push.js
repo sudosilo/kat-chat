@@ -38,7 +38,8 @@ module.exports = async (req, res) => {
     const rows = await db("chat_messages?select=*&id=eq." + id);
     const msg = rows && rows[0];
     if (!msg || msg.deleted_at) return res.status(200).json({ skipped: "no message" });
-    if (msg.room && msg.room !== "kat") return res.status(200).json({ skipped: "other room" });
+    const room = msg.room || "kat";
+    if (room !== "kat" && !/^r-[0-9a-f]{10}$/.test(room)) return res.status(200).json({ skipped: "other room" });
     if (Date.now() - new Date(msg.created_at).getTime() > 120000) return res.status(200).json({ skipped: "too old" });
     const logged = await db("chat_push_log?on_conflict=message_id", {
       method: "POST",
@@ -50,8 +51,10 @@ module.exports = async (req, res) => {
     const [names, subs, members] = await Promise.all([
       db("chat_names?select=id,name"),
       db("chat_push?select=endpoint,user_id,p256dh,auth,mode"),
-      db("chat_members?select=user_id")
+      room === "kat" ? db("chat_members?select=user_id") : db("chat_room_members?select=user_id&room=eq." + room)
     ]);
+    let roomName = "";
+    if (room !== "kat"){ const rr = await db("chat_rooms?select=name&id=eq." + room); roomName = (rr && rr[0] && rr[0].name) || "a room"; }
     const nameOf = uid => uid === BOT_ID ? "Claude" : ((names.find(n => n.id === uid) || {}).name || "").trim() || "Someone";
     const memberSet = new Set(members.map(m => m.user_id));
     let replyTo = null;
@@ -73,7 +76,7 @@ module.exports = async (req, res) => {
       webpush.setVapidDetails("https://" + (req.headers.host || "localhost"), process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
       webReady = true;
     }catch(e){}
-    const base = { title: nameOf(msg.sender), body, tag: "kat-chat", url: "/" };
+    const base = { title: nameOf(msg.sender) + (roomName ? " in " + roomName : ""), body, tag: "kat-chat-" + room, url: "/" };
     const used = Buffer.byteLength(JSON.stringify({ ...base, p: "" }));
     const payload = JSON.stringify({ ...base, p: require("crypto").randomBytes(1536).toString("base64url").slice(0, Math.max(0, 1536 - used)) });
 

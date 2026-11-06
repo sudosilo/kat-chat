@@ -219,6 +219,14 @@ textarea::placeholder{color:var(--muted)}
 .chess .pb{color:#1b1310;text-shadow:0 0 1px rgba(255,255,255,.5)}
 .chess .co{position:absolute;font-family:var(--body,sans-serif);font-size:.55rem;opacity:.65;left:3px;top:2px;color:#2a1e14}
 .chessbtn{margin-top:8px}
+.roomchip{display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:inherit;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;max-width:56vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roomchip::after{content:"\25BE";font-size:.7rem;opacity:.7}
+.roomlist{display:flex;flex-direction:column;gap:6px}
+.roomlist button{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:inherit;font:inherit;cursor:pointer}
+.roomlist button[aria-pressed="true"]{border-color:var(--accent,#ff8a2b);box-shadow:0 0 0 2px var(--accent,#ff8a2b) inset;font-weight:700}
+.roomlist .rk{font-size:.75rem;opacity:.7;font-weight:400}
+.rmem{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.rmem .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .gifbtn{font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.03em}
 .funtabs{display:flex;gap:8px;justify-content:center;margin:4px 0 10px}
 .funrow{display:flex;gap:8px}
@@ -437,6 +445,7 @@ details details{margin-top:10px;background:var(--bg)}
       <div>
         <h1>Cat Command <span>Chat</span></h1>
         <div class="sub"><span class="dot"></span><span id="onlineText">Connecting...</span></div>
+        <button class="roomchip" id="roomChip" type="button" hidden>Main room</button>
       </div>
     </div>
     <div class="hbtns">
@@ -485,6 +494,12 @@ details details{margin-top:10px;background:var(--bg)}
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
   </div>
+
+  <section class="dsec" id="roomSec" hidden>
+    <p class="sh">Rooms</p>
+    <div class="roomlist" id="roomList"></div>
+    <div class="dactions"><button class="mini strong" id="roomNew" type="button" hidden>Create a room</button><button class="mini" id="roomManage" type="button" hidden>Manage this room</button></div>
+  </section>
 
   <section class="dsec">
     <p class="sh">Appearance</p>
@@ -678,7 +693,7 @@ details details{margin-top:10px;background:var(--bg)}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1031u";
+const BUILD = "kat-1105a";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -711,6 +726,8 @@ let msgs = [], seen = new Set(), profiles = {}, members = [], online = new Set()
 let hasOlder = false, lastRead = 0, unreadMark = null, hiddenUnread = 0;
 const reacts = new Map();
 let pickerFor = null, sheetFor = null, ctx = null;
+const MAIN_ROOM = "kat";
+let curRoom = MAIN_ROOM, myRooms = [], mainMember = false, mainRole = "member";
 
 /* Helpers */
 function store(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
@@ -732,7 +749,7 @@ function btn(cls, txt, fn){ const b = el("button", cls, txt); b.type = "button";
 function nameOf(id){ const p = profiles[id]; return (p && p.name && p.name.trim()) || "Someone"; }
 function colorOf(id){ const p = profiles[id]; return (p && p.color) || null; }
 function memberOf(id){ return members.find(m => m.user_id === id) || null; }
-function isOwner(id){ const m = memberOf(id || myId); return !!m && m.role === "owner"; }
+function isOwner(id){ if (!id || id === myId) return mainMember && mainRole === "owner"; const m = memberOf(id); return !!m && m.role === "owner"; }
 function inkFor(hex){
   const n = parseInt(hex.slice(1), 16); const r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.58 ? "#1b1310" : "#ffffff";
@@ -1139,7 +1156,7 @@ async function loadAvatars(){
   if (!need.length) return;
   const { data } = await sb.storage.from(AV_BUCKET).createSignedUrls(need, 3600);
   if (data) data.forEach(r => { if (r.signedUrl && r.path) avUrl[r.path] = r.signedUrl; });
-  renderRail(); render(); if (sheetFor && !["invites", "search", "botnote"].includes(sheetFor)) openProfile(sheetFor, true);
+  renderRail(); render(); if (sheetFor && !["invites", "search", "botnote", "room", "rooms", "fun"].includes(sheetFor)) openProfile(sheetFor, true);
 }
 function setProfile(r){ if (r && r.id) profiles[r.id] = { name: r.name || "", color: r.color || null, avatar_path: r.avatar_path || null }; }
 
@@ -1167,9 +1184,9 @@ function updateHeader(){
 let refreshing = false;
 async function refreshMembers(){
   if (refreshing || !sb) return; refreshing = true;
-  const { data } = await sb.rpc("list_members");
+  const { data } = curRoom === MAIN_ROOM ? await sb.rpc("list_members") : await sb.rpc("room_members", { p_room: curRoom });
   refreshing = false;
-  if (data){ members = data; renderRail(); updateHeader(); renderAccount(); if (sheetFor && !["invites", "search", "botnote"].includes(sheetFor)) openProfile(sheetFor, true); }
+  if (data){ members = data; renderRail(); updateHeader(); renderAccount(); if (sheetFor && !["invites", "search", "botnote", "room", "rooms", "fun"].includes(sheetFor)) openProfile(sheetFor, true); }
 }
 
 /* Sheets */
@@ -1186,7 +1203,7 @@ function openSheet(key){
 
 /* Person card */
 function openProfile(id, refreshOnly){
-  if (refreshOnly && /^(chess-|fun$)/.test(String(id))) return;
+  if (refreshOnly && /^(chess-|fun$|room$|rooms$)/.test(String(id))) return;
   if (refreshOnly && sheetFor !== id) return;
   if (refreshOnly && $("#sheet").querySelector(".edit,.admin select:focus")) return;
   if (id === BOT_ID){
@@ -1223,11 +1240,13 @@ function openProfile(id, refreshOnly){
   sh.append(top, stats);
   if (id === myId){
     sh.append(profileEditor());
-    const inv = btn("mini", "Invite someone", openInvites); inv.style.marginTop = "12px"; sh.append(inv);
+    if (mainMember){ const inv = btn("mini", "Invite someone", openInvites); inv.style.marginTop = "12px"; sh.append(inv); }
+    if (curRoom !== MAIN_ROOM && amRoomOwner()){ const rk = btn("mini", "Make a room key", openRoomSheet); rk.style.marginTop = "12px"; sh.append(rk); }
   }
   else {
     if (memberOf(id)){ const pc = btn("mini strong", "Play chess", () => startChess(id)); pc.style.marginTop = "12px"; sh.append(pc); }
-    if (isOwner() && memberOf(id)) sh.append(adminTools(id));
+    if (curRoom === MAIN_ROOM && isOwner() && memberOf(id)) sh.append(adminTools(id));
+    if (curRoom !== MAIN_ROOM && amRoomOwner() && memberOf(id)){ const rb = btn("mini danger", "Remove from this room", () => roomRemove(id)); rb.style.marginTop = "12px"; sh.append(rb); }
   }
 }
 function adminTools(id){
@@ -1498,7 +1517,7 @@ function actionsEl(m){
   acts.append(btn("mini", "Reply", () => { pickerFor = null; startCtx("reply", m); render(); }));
   if (m.text) acts.append(btn("mini", "Copy", async () => { try{ await navigator.clipboard.writeText(m.text); }catch(e){} pickerFor = null; render(); }));
   if (m.from === myId && m.text && !isBareMedia(m.text)) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
-  if (m.from === myId || isOwner()) acts.append(btn("mini danger", "Delete", async () => {
+  if (m.from === myId || isOwner() || amRoomOwner()) acts.append(btn("mini danger", "Delete", async () => {
     if (!confirm("Delete this message for everyone?")) return;
     pickerFor = null;
     const { data, error } = await sb.rpc("delete_message", { p_id: m.id });
@@ -1697,8 +1716,9 @@ function audioPlayer(setSrc, knownSec){
 let padOn = true;
 function padMissing(err){ return !!err && (err.code === "PGRST204" || err.code === "PGRST202" || err.code === "42703" || /\bpad\b|p_pad/i.test(err.message || "")); }
 // The same message table also carries other rooms, such as Field Chat in Field Twin. This chat only shows its own room.
-function inRoom(r){ return !r || !r.room || r.room === "kat"; }
+function inRoom(r){ return !!r && (r.room || MAIN_ROOM) === curRoom; }
 async function insertPadded(table, row, single){
+  if (table === "chat_messages" && curRoom !== MAIN_ROOM && row.room === undefined) row = { ...row, room: curRoom };
   const run = r => single ? sb.from(table).insert(r).select().single() : sb.from(table).insert(r);
   if (!padOn){ const r = { ...row }; delete r.pad; return run(r); }
   let res = await run(row);
@@ -1972,7 +1992,7 @@ async function loadOlder(){
   if (!msgs.length) return;
   const b = nodes.get("older"); if (b) b.disabled = true;
   const h = lane.scrollHeight, top = lane.scrollTop;
-  const { data } = await sb.from("chat_messages").select("*").lt("id", msgs[0].id).order("id", { ascending: false }).limit(OLDER);
+  const { data } = await sb.from("chat_messages").select("*").eq("room", curRoom).lt("id", msgs[0].id).order("id", { ascending: false }).limit(OLDER);
   if (data){
     hasOlder = data.length === OLDER;
     data.filter(inRoom).forEach(r => { const m = toMsg(r); if (!msgById(m.id)){ msgs.push(m); seen.add(m.id); } });
@@ -1999,7 +2019,7 @@ function markRead(){
   if (document.hidden || !msgs.length) return;
   const nearBottom = lane.scrollHeight - lane.scrollTop - lane.clientHeight < 120;
   const lastId = msgs[msgs.length - 1].id;
-  if (nearBottom && lastId > lastRead){ lastRead = lastId; store("katLastRead", String(lastRead)); }
+  if (nearBottom && lastId > lastRead){ lastRead = lastId; store(lastReadKey(), String(lastRead)); }
   if (hiddenUnread){ hiddenUnread = 0; document.title = TITLE; }
 }
 lane.addEventListener("scroll", () => { if (!document.hidden) markRead(); }, { passive: true });
@@ -2098,7 +2118,7 @@ function onPresence(){
   paintTyping();
   if (others.some(k => !memberOf(k))) refreshMembers();
   renderRail(); updateHeader();
-  if (sheetFor && !["invites", "search", "botnote"].includes(sheetFor)) openProfile(sheetFor, true);
+  if (sheetFor && !["invites", "search", "botnote", "room", "rooms", "fun"].includes(sheetFor)) openProfile(sheetFor, true);
 }
 
 /* Search */
@@ -2115,7 +2135,7 @@ $("#searchBtn").addEventListener("click", () => {
     if (q.length < 2){ res.append(el("p", "hint2", "Type at least two letters.")); return; }
     res.append(el("p", "hint2", "Searching..."));
     const safe = q.replace(/[\\%_]/g, c => "\\" + c);
-    const found = await sb.from("chat_messages").select("*").is("deleted_at", null).ilike("body", "%" + safe + "%").order("id", { ascending: false }).limit(50);
+    const found = await sb.from("chat_messages").select("*").eq("room", curRoom).is("deleted_at", null).ilike("body", "%" + safe + "%").order("id", { ascending: false }).limit(50);
     const error = found.error, data = (found.data || []).filter(inRoom);
     res.textContent = "";
     if (error){ res.append(el("p", "hint2", "Search didn't work. Try again.")); return; }
@@ -2145,11 +2165,11 @@ function showLock(){
   const card = el("form", "lock"); card.autocomplete = "off";
   card.innerHTML = '<div class="badge"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>';
   card.append(
-    el("h2", null, "You need an invite code"),
+    el("h2", null, "You need an invite code or room key"),
     el("p", "lead", "This is a private chat. Message the person who shared this link with you and ask them for an invite code."),
-    el("p", "small", "Got the code? Type it below to join. You'll see messages from the moment you join.")
+    el("p", "small", "Got a code? Type it below to join. Room keys start with rk- and open just that room. You'll see messages from the moment you join.")
   );
-  const inp = document.createElement("input"); inp.placeholder = "Invite code"; inp.setAttribute("aria-label", "Invite code"); inp.autocapitalize = "none"; inp.autocomplete = "off"; inp.spellcheck = false;
+  const inp = document.createElement("input"); inp.placeholder = "Invite code or room key"; inp.setAttribute("aria-label", "Invite code or room key"); inp.autocapitalize = "none"; inp.autocomplete = "off"; inp.spellcheck = false;
   const go = el("button", "send", "Join the chat"); go.type = "submit";
   const err = el("p", "err");
   const alt = el("div", "alt", "Already a member on another device?");
@@ -2159,12 +2179,20 @@ function showLock(){
     e.preventDefault();
     const code = inp.value.trim().toLowerCase(); if (!code){ err.textContent = "Type the invite code first."; return; }
     go.disabled = true; err.textContent = "Checking...";
+    if (/^rk-/.test(code)){
+      const rj = await sb.rpc("room_join", { p_code: code });
+      go.disabled = false;
+      if (rj.error || !rj.data){ err.textContent = "That room key didn't work. Check it with the room's owner."; inp.select(); return; }
+      err.textContent = ""; await loadRooms(); curRoom = String(rj.data); store("katRoom", curRoom);
+      lane.textContent = ""; enterChat(true); return;
+    }
     const { data, error } = await sb.rpc("join_chat", { code });
     go.disabled = false;
     if (error || data !== true){ err.textContent = "That code didn't work. Check it with the person who invited you."; inp.select(); return; }
     err.textContent = "";
-    const mem = await sb.from("chat_members").select("joined_at").eq("user_id", myId).maybeSingle();
+    const mem = await sb.from("chat_members").select("joined_at,role").eq("user_id", myId).maybeSingle();
     joinedAt = mem.data ? mem.data.joined_at : new Date().toISOString();
+    mainMember = true; mainRole = (mem.data && mem.data.role) || "member"; curRoom = MAIN_ROOM;
     lane.textContent = "";
     enterChat(true);
   });
@@ -2198,7 +2226,7 @@ async function catchUp(){
   if (!inChat || !sb || catching) return; catching = true;
   try{
     const lastId = msgs.length ? Math.max(...msgs.map(m => m.id)) : 0;
-    const { data } = await sb.from("chat_messages").select("*").gt("id", lastId).order("id", { ascending: true }).limit(500);
+    const { data } = await sb.from("chat_messages").select("*").eq("room", curRoom).gt("id", lastId).order("id", { ascending: true }).limit(500);
     let fromOthers = false;
     if (data && data.length){
       for (const r of data){
@@ -2320,6 +2348,177 @@ window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); instal
 $("#installBtn").addEventListener("click", async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $("#installBtn").hidden = true; });
 window.addEventListener("appinstalled", () => { $("#installBtn").hidden = true; });
 paintNotif();
+
+/* Rooms: side rooms with their own members and keys. People who join with a room key see only that room. */
+function lastReadKey(){ return curRoom === MAIN_ROOM ? "katLastRead" : "katLastRead_" + curRoom; }
+function curRoomInfo(){ return myRooms.find(r => r.id === curRoom) || null; }
+function amRoomOwner(){ const r = curRoomInfo(); return !!r && r.owner === myId; }
+function roomName(id){ if (id === MAIN_ROOM) return "Main room"; const r = myRooms.find(x => x.id === id); return r ? r.name : "Room"; }
+async function loadRooms(){
+  try{ const { data, error } = await sb.rpc("my_rooms"); myRooms = error ? [] : (data || []); }catch(e){ myRooms = []; }
+  paintRooms();
+}
+function paintRooms(){
+  const sec = $("#roomSec"), list = $("#roomList"), chip = $("#roomChip");
+  sec.hidden = !inChat && !myRooms.length;
+  list.textContent = "";
+  const all = (mainMember ? [{ id: MAIN_ROOM, name: "Main room" }] : []).concat(myRooms);
+  for (const r of all){
+    const b = btn(null, null, () => switchRoom(r.id));
+    b.setAttribute("aria-pressed", r.id === curRoom ? "true" : "false");
+    b.append(el("span", null, r.name), el("span", "rk", r.id === MAIN_ROOM ? "Everyone" : (r.owner === myId ? "You own it" : "Room")));
+    list.append(b);
+  }
+  $("#roomNew").hidden = !mainMember;
+  $("#roomManage").hidden = curRoom === MAIN_ROOM;
+  chip.hidden = !inChat || !myRooms.length;
+  chip.textContent = roomName(curRoom);
+  document.title = curRoom === MAIN_ROOM ? "Cat Command Chat" : roomName(curRoom) + " · Cat Command Chat";
+}
+async function switchRoom(id){
+  closeMenu(); if (sheetFor) closeSheet();
+  if (id === curRoom) return;
+  curRoom = id; store("katRoom", id);
+  if (ctx) endCtx();
+  msgs = []; seen.clear(); reacts.clear(); nodes.clear(); lane.textContent = "";
+  pickerFor = null; unreadMark = null; hasOlder = false; members = []; online = new Set();
+  lastRead = Number(load(lastReadKey()) || 0);
+  paintRooms(); renderRail();
+  $("#onlineText").textContent = "Loading...";
+  await Promise.all([loadRecent(), refreshMembers()]);
+  const firstNew = msgs.find(m => m.id > lastRead && m.from !== myId);
+  unreadMark = lastRead && firstNew ? firstNew.id : null;
+  render(); lane.scrollTop = lane.scrollHeight;
+  updateHeader(); subscribeChan();
+}
+function openRoomsSheet(){
+  const sh = openSheet("rooms");
+  sh.append(el("h3", null, "Rooms"));
+  const list = el("div", "roomlist");
+  const all = (mainMember ? [{ id: MAIN_ROOM, name: "Main room" }] : []).concat(myRooms);
+  for (const r of all){
+    const b = btn(null, null, () => switchRoom(r.id));
+    b.setAttribute("aria-pressed", r.id === curRoom ? "true" : "false");
+    b.append(el("span", null, r.name), el("span", "rk", r.id === MAIN_ROOM ? "Everyone" : (r.owner === myId ? "You own it" : "Room")));
+    list.append(b);
+  }
+  sh.append(list);
+  const acts = el("div", "dactions");
+  if (curRoom !== MAIN_ROOM) acts.append(btn("mini", "Manage this room", openRoomSheet));
+  if (mainMember) acts.append(btn("mini strong", "Create a room", openRoomCreate));
+  sh.append(acts);
+}
+function openRoomCreate(){
+  closeMenu();
+  const sh = openSheet("room");
+  sh.append(el("h3", null, "Create a room"), el("p", "hint2", "A room is a separate chat with its own people. You'll own it and hand out room keys. People who join with a key see only this room, never the main chat."));
+  const f = el("div", "field"); const lb = el("label", null, "Room name"); lb.htmlFor = "roomNameIn";
+  const inp = document.createElement("input"); inp.type = "text"; inp.id = "roomNameIn"; inp.maxLength = 40; inp.placeholder = "Room name";
+  f.append(lb, inp);
+  const err = el("p", "hint2");
+  const go = btn("send", "Create room", async () => {
+    const name = inp.value.trim(); if (!name){ err.textContent = "Give the room a name first."; return; }
+    go.disabled = true; err.textContent = "Creating...";
+    const { data, error } = await sb.rpc("room_create", { p_name: name });
+    go.disabled = false;
+    if (error || !data){ err.textContent = /function|schema|exist/i.test((error && error.message) || "") ? "Rooms aren't set up on the server yet." : "Couldn't create the room. Try again."; return; }
+    const id = typeof data === "string" ? data : data.id;
+    await loadRooms(); await switchRoom(id); openRoomSheet();
+  });
+  sh.append(f, go, err);
+  setTimeout(() => inp.focus(), 50);
+}
+async function openRoomSheet(){
+  closeMenu();
+  const r = curRoomInfo(); if (!r){ openRoomsSheet(); return; }
+  const sh = openSheet("room");
+  const owner = r.owner === myId;
+  sh.append(el("h3", null, r.name), el("p", "hint2", owner ? "You own this room. Make a key for each person you want to let in. Keys open this room only." : "Owned by " + nameOf(r.owner) + "."));
+  if (owner){
+    let uses = 1, days = 7;
+    const segUses = el("div", "seg"), segDays = el("div", "seg");
+    const paint = () => {
+      segUses.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", Number(b.dataset.v) === uses ? "true" : "false"));
+      segDays.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", Number(b.dataset.v) === days ? "true" : "false"));
+    };
+    [[1, "1 person"], [5, "Up to 5"], [20, "Up to 20"]].forEach(([v, t]) => { const b = btn(null, t, () => { uses = v; paint(); }); b.dataset.v = v; segUses.append(b); });
+    [[1, "1 day"], [7, "7 days"], [30, "30 days"]].forEach(([v, t]) => { const b = btn(null, t, () => { days = v; paint(); }); b.dataset.v = v; segDays.append(b); });
+    const f2 = el("div", "field"); f2.append(el("span", "lbl", "How many people can use it"), segUses);
+    const f3 = el("div", "field"); f3.append(el("span", "lbl", "Expires after"), segDays);
+    paint();
+    const out = el("div");
+    const make = btn("send", "Make a room key", async () => {
+      make.disabled = true;
+      const { data, error } = await sb.rpc("room_key_new", { p_room: r.id, p_max_uses: uses, p_days: days });
+      make.disabled = false;
+      if (error || !data){ out.textContent = "Couldn't make a key. Try again."; return; }
+      out.textContent = "";
+      const code = String(data);
+      const msg = "You're invited to the room \"" + r.name + "\". Open " + WEB_HOME.replace(/^https?:\/\//, "").replace(/\/$/, "") + " and enter room key: " + code;
+      const cp = btn("mini strong", "Copy key", async () => { try{ await navigator.clipboard.writeText(msg); cp.textContent = "Copied"; }catch(e){ cp.textContent = "Can't copy, select it above"; } });
+      const row = el("div", "prow"); row.append(cp);
+      if (navigator.share) row.append(btn("mini", "Share", () => navigator.share({ text: msg }).catch(() => {})));
+      out.append(el("div", "codebox", code), el("p", "hint2", "It only shows once, so copy it now."), row);
+      listRoomKeys(r.id, keyBox);
+    });
+    const keyBox = el("div");
+    sh.append(f2, f3, make, out, el("p", "sh", "Keys for this room"), keyBox);
+    listRoomKeys(r.id, keyBox);
+  }
+  sh.append(el("p", "sh", "People in this room"));
+  const memBox = el("div"); sh.append(memBox);
+  const { data: rm } = await sb.rpc("room_members", { p_room: r.id });
+  for (const m of rm || []){
+    const row = el("div", "rmem");
+    row.append(avatarEl(m.user_id, 32), el("span", "nm", (m.user_id === myId ? "You" : nameOf(m.user_id)) + (m.role === "owner" ? " (owner)" : "")));
+    if (owner && m.user_id !== myId) row.append(btn("mini danger", "Remove", () => roomRemove(m.user_id)));
+    memBox.append(row);
+  }
+  const acts = el("div", "dactions");
+  if (!owner) acts.append(btn("mini danger", "Leave this room", roomLeave));
+  else acts.append(btn("mini danger", "Delete this room", roomDelete));
+  sh.append(acts);
+}
+async function listRoomKeys(room, box){
+  box.textContent = "Loading...";
+  const { data, error } = await sb.rpc("room_keys", { p_room: room });
+  box.textContent = "";
+  if (error){ box.textContent = "Couldn't load keys."; return; }
+  if (!data || !data.length){ box.append(el("p", "hint2", "No keys yet.")); return; }
+  for (const k of data){
+    const expired = k.expires_at && new Date(k.expires_at).getTime() < Date.now();
+    const used = k.max_uses && k.uses >= k.max_uses;
+    const state = k.revoked ? "Turned off" : expired ? "Expired" : used ? "Used up" : "Active";
+    const card = el("div", "inv");
+    card.append(el("div", null, "rk-" + k.code_hint + "... · " + k.uses + " of " + k.max_uses + " used · " + state));
+    if (state === "Active") card.append(btn("mini danger", "Turn off", async () => { await sb.rpc("room_key_revoke", { p_key: k.id }); listRoomKeys(room, box); }));
+    box.append(card);
+  }
+}
+async function roomRemove(uid){
+  if (!confirm("Remove " + nameOf(uid) + " from this room?")) return;
+  const { error } = await sb.rpc("room_remove", { p_room: curRoom, p_user: uid });
+  if (error){ showNote("Couldn't remove them. Try again."); return; }
+  await refreshMembers(); if (sheetFor === "room") openRoomSheet(); else closeSheet();
+}
+async function roomLeave(){
+  if (!confirm("Leave this room? You'll need a new key to get back in.")) return;
+  const { error } = await sb.rpc("room_leave", { p_room: curRoom });
+  if (error){ showNote("Couldn't leave the room. Try again."); return; }
+  await loadRooms();
+  if (mainMember) switchRoom(MAIN_ROOM);
+  else if (myRooms.length) switchRoom(myRooms[0].id);
+  else { closeSheet(); localStorage.removeItem("katRoom"); location.reload(); }
+}
+async function roomDelete(){
+  if (!confirm("Delete this room for everyone? Its messages go away too.")) return;
+  const { error } = await sb.rpc("room_delete", { p_room: curRoom });
+  if (error){ showNote("Couldn't delete the room. Try again."); return; }
+  await loadRooms(); switchRoom(mainMember ? MAIN_ROOM : (myRooms[0] ? myRooms[0].id : MAIN_ROOM));
+}
+$("#roomChip").addEventListener("click", openRoomsSheet);
+$("#roomNew").addEventListener("click", openRoomCreate);
+$("#roomManage").addEventListener("click", openRoomSheet);
 
 /* Fun picker: GIFs and movie and TV quote clips */
 function isBareMedia(t){ return /^\s*https:\/\/(?:y\.yarn\.co\/[0-9a-f-]{36}\.mp4|media\d*\.giphy\.com\/media\/[\w.\/-]+\.gif|i\.giphy\.com\/[\w.\/-]+\.gif|[\w.-]*klipy\.com\/[\w.\/%-]+\.(?:mp4|gif|webp))\s*$/i.test(t || ""); }
@@ -2533,7 +2732,7 @@ async function chessResign(id){
 
 /* Startup */
 async function loadRecent(){
-  const { data } = await sb.from("chat_messages").select("*").order("id", { ascending: false }).limit(PAGE);
+  const { data } = await sb.from("chat_messages").select("*").eq("room", curRoom).order("id", { ascending: false }).limit(PAGE);
   if (data){
     hasOlder = data.length === PAGE;
     msgs = data.filter(inRoom).map(toMsg).sort((a, b) => a.at - b.at); msgs.forEach(x => seen.add(x.id));
@@ -2547,13 +2746,13 @@ async function enterChat(justJoined){
   inChat = true;
   $("#rail").hidden = false; $("#form").hidden = false; $("#searchBtn").hidden = false;
   $("#onlineText").textContent = "Loading...";
-  lastRead = Number(load("katLastRead") || 0);
+  lastRead = Number(load(lastReadKey()) || 0);
   const n = await sb.from("chat_names").select("id,name,color,avatar_path");
   if (n.data) n.data.forEach(setProfile);
   await Promise.all([loadRecent(), refreshMembers()]);
   const firstNew = msgs.find(m => m.id > lastRead && m.from !== myId);
   unreadMark = lastRead && firstNew ? firstNew.id : null;
-  renderAccount(); renderRail(); updateHeader();
+  renderAccount(); renderRail(); updateHeader(); paintRooms();
   render();
   const mark = unreadMark !== null && nodes.get("unread");
   if (mark) mark.scrollIntoView({ block: "start" }); else lane.scrollTop = lane.scrollHeight;
@@ -2562,7 +2761,15 @@ async function enterChat(justJoined){
     openProfile(myId);
     const ed = $("#sheet .edit"); if (ed) ed.prepend(el("p", "sh", "Welcome in. Pick a name so people know it's you."));
   }
-  chan = sb.channel("cat-room", { config: { presence: { key: myId } } })
+  subscribeChan();
+}
+
+function subscribeChan(){
+  if (chan){ try{ sb.removeChannel(chan); }catch(e){} chan = null; }
+  ready = false; updateSend();
+  const c = sb.channel(curRoom === MAIN_ROOM ? "cat-room" : "room-" + curRoom, { config: { presence: { key: myId } } });
+  chan = c;
+  c
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, p => {
       if (!inRoom(p.new)) return;
       const nm = toMsg(p.new); const fresh = !msgById(nm.id);
@@ -2587,6 +2794,7 @@ async function enterChat(justJoined){
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_games" }, p => { if (p.new && p.new.id) gotGame(p.new); })
     .on("presence", { event: "sync" }, onPresence)
     .subscribe(async status => {
+      if (chan !== c) return;
       if (status === "SUBSCRIBED"){ ready = true; if (/^Lost connection/.test(note.textContent)) showNote(""); updateSend(); $("#attachBtn").disabled = uploading; $("#micBtn").disabled = false; $("#funBtn").disabled = false; catchUp(); await trackTyping(false); }
       else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT"){ showNote("Lost connection to the chat. It will catch up when it reconnects."); }
     });
@@ -2609,8 +2817,13 @@ async function start(){
     showNote("Couldn't connect to the chat server. Check your connection and reload.");
     renderAccount(); return;
   }
-  const mem = await sb.from("chat_members").select("joined_at").eq("user_id", myId).maybeSingle();
-  if (mem.data){ joinedAt = mem.data.joined_at; enterChat(false); }
+  const mem = await sb.from("chat_members").select("joined_at,role").eq("user_id", myId).maybeSingle();
+  mainMember = !!mem.data; if (mem.data){ joinedAt = mem.data.joined_at; mainRole = mem.data.role || "member"; }
+  await loadRooms();
+  const saved = load("katRoom");
+  if (saved && myRooms.some(r => r.id === saved)) curRoom = saved;
+  else if (!mainMember && myRooms.length) curRoom = myRooms[0].id;
+  if (mainMember || myRooms.length) enterChat(false);
   else { renderAccount(); showLock(); }
 }
 start();

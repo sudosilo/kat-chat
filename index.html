@@ -219,8 +219,9 @@ textarea::placeholder{color:var(--muted)}
 .chess .pb{color:#1b1310;text-shadow:0 0 1px rgba(255,255,255,.5)}
 .chess .co{position:absolute;font-family:var(--body,sans-serif);font-size:.55rem;opacity:.65;left:3px;top:2px;color:#2a1e14}
 .chessbtn{margin-top:8px}
-.roomchip{display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:inherit;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;max-width:56vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.roomchip::after{content:"\25BE";font-size:.7rem;opacity:.7}
+.roomchip{display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:inherit;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;max-width:56vw}
+.roomchip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roomchip::after{content:"\25BE";font-size:.7rem;opacity:.7;flex:none}
 .roomlist{display:flex;flex-direction:column;gap:6px}
 .roomlist button{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:inherit;font:inherit;cursor:pointer}
 .roomlist button[aria-pressed="true"]{border-color:var(--accent,#ff8a2b);box-shadow:0 0 0 2px var(--accent,#ff8a2b) inset;font-weight:700}
@@ -702,7 +703,7 @@ details details{margin-top:10px;background:var(--bg)}
 <script>
 const SB_URL = "https://vogxdikogfaxhwcgajfg.supabase.co";
 const SB_KEY = "sb_publishable_b9N7M8W5NpGgsus1ZUQgaw_3QQBxFm1";
-const BUILD = "kat-1105a";
+const BUILD = "kat-1105b";
 const BOT_ID = "c1a0de00-0000-4000-8000-000000000001";
 const PAGE = 150, OLDER = 100;
 const BUCKET = "chat-files", AV_BUCKET = "chat-avatars";
@@ -726,6 +727,8 @@ if (IS_APP) document.addEventListener("click", e => {
   e.preventDefault(); openOutside(a.href);
 }, true);
 const TITLE = document.title;
+function baseTitle(){ return curRoom === MAIN_ROOM ? TITLE : roomName(curRoom) + " · " + TITLE; }
+function titleNow(){ document.title = hiddenUnread ? "(" + hiddenUnread + ") " + baseTitle() : baseTitle(); }
 
 const $ = s => document.querySelector(s);
 const root = document.documentElement;
@@ -756,7 +759,7 @@ function ago(ts){
 function el(tag, cls, txt){ const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
 function btn(cls, txt, fn){ const b = el("button", cls, txt); b.type = "button"; if (fn) b.addEventListener("click", fn); return b; }
 function nameOf(id){ const p = profiles[id]; return (p && p.name && p.name.trim()) || "Someone"; }
-function colorOf(id){ const p = profiles[id]; return (p && p.color) || null; }
+function colorOf(id){ const p = profiles[id]; return (p && typeof p.color === "string" && /^#[0-9a-f]{6}$/i.test(p.color)) ? p.color : null; }
 function memberOf(id){ return members.find(m => m.user_id === id) || null; }
 function isOwner(id){ if (!id || id === myId) return mainMember && mainRole === "owner"; const m = memberOf(id); return !!m && m.role === "owner"; }
 function inkFor(hex){
@@ -765,7 +768,7 @@ function inkFor(hex){
 }
 function toMsg(r){
   return { id:r.id, from:r.sender, text:r.body || "", at:new Date(r.created_at).getTime(), path:r.file_path || "", fname:r.file_name || "",
-    fsize:Number(r.file_size) || 0, ftype:r.file_type || "", edited:!!r.edited_at, deleted:!!r.deleted_at, reply:r.reply_to || null };
+    fsize:Number(r.file_size) || 0, ftype:r.file_type || "", edited:!!r.edited_at, deleted:!!r.deleted_at, reply:r.reply_to || null, room:r.room || MAIN_ROOM };
 }
 function msgById(id){ return msgs.find(m => m.id === id) || null; }
 function snippet(m){
@@ -933,7 +936,7 @@ const TOMA = (() => {
   function event(kind, ms){ evt = { kind, until:Date.now() + (ms || 2600) }; lastAct = Date.now(); if (kind === "sent") store(FED, String(Date.now())); }
   function incoming(m){
     const nm = myId && nameOf(myId);
-    const tagged = nm && nm !== "Someone" && new RegExp("@" + nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(m.text || "");
+    const tagged = nm && nm !== "Someone" && new RegExp("@" + nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![\\w])", "i").test(m.text || "");
     event(tagged ? "mention" : "incoming", tagged ? 4000 : 2200);
   }
   function drawEgg(cx, by, wob){
@@ -1150,7 +1153,7 @@ function avatarEl(id, size){
   const col = colorOf(id);
   d.style.setProperty("--ring", col || "var(--line)");
   const p = profiles[id]; const u = p && p.avatar_path && avUrl[p.avatar_path];
-  if (u){ const img = document.createElement("img"); img.src = u; img.alt = ""; d.append(img); }
+  if (u){ const img = document.createElement("img"); img.src = u; img.alt = ""; img.onerror = () => { delete avUrl[p.avatar_path]; img.remove(); const n = nameOf(id); d.textContent = n === "Someone" ? "?" : [...n.trim()][0].toUpperCase(); }; d.append(img); }
   else {
     const n = nameOf(id); d.textContent = n === "Someone" ? "?" : [...n.trim()][0].toUpperCase();
     d.style.fontSize = Math.round(size * .42) + "px";
@@ -1159,8 +1162,11 @@ function avatarEl(id, size){
   wrap.append(d, el("i", "od"));
   return wrap;
 }
+let avBorn = Date.now();
+setInterval(() => { if (inChat && sb && Date.now() - avBorn > 50 * 60 * 1000) loadAvatars(); }, 5 * 60 * 1000);
 function avatarKey(id){ const p = profiles[id]; return (p && p.avatar_path && avUrl[p.avatar_path]) || ""; }
 async function loadAvatars(){
+  if (Date.now() - avBorn > 50 * 60 * 1000){ for (const k of Object.keys(avUrl)) delete avUrl[k]; avBorn = Date.now(); }
   const need = [...new Set(Object.values(profiles).map(p => p.avatar_path).filter(p => p && !avUrl[p]))];
   if (!need.length) return;
   const { data } = await sb.storage.from(AV_BUCKET).createSignedUrls(need, 3600);
@@ -1190,11 +1196,15 @@ function updateHeader(){
   const n = Math.max(members.length, 1), on = Math.max(online.size, 1);
   $("#onlineText").textContent = on + " online · " + n + (n === 1 ? " member" : " members");
 }
-let refreshing = false;
+let refreshing = false, refreshAgain = false;
 async function refreshMembers(){
-  if (refreshing || !sb) return; refreshing = true;
-  const { data } = curRoom === MAIN_ROOM ? await sb.rpc("list_members") : await sb.rpc("room_members", { p_room: curRoom });
+  if (!sb) return;
+  if (refreshing){ refreshAgain = true; return; }
+  refreshing = true;
+  const room = curRoom;
+  const { data } = room === MAIN_ROOM ? await sb.rpc("list_members") : await sb.rpc("room_members", { p_room: room });
   refreshing = false;
+  if (room !== curRoom || refreshAgain){ refreshAgain = false; return refreshMembers(); }
   if (data){ members = data; renderRail(); updateHeader(); renderAccount(); if (sheetFor && !["invites", "search", "botnote", "room", "rooms", "fun"].includes(sheetFor)) openProfile(sheetFor, true); }
 }
 
@@ -1229,7 +1239,7 @@ function openProfile(id, refreshOnly){
   const sh = openSheet(id);
   const top = el("div", "top" + (online.has(id) ? " on" : ""));
   const pn = el("div", "pname", nameOf(id) + (id === myId ? " (you)" : ""));
-  if (isOwner(id)) pn.append(el("span", "badge-owner", "Owner"));
+  if (id === myId ? (curRoom === MAIN_ROOM ? isOwner() : amRoomOwner()) : isOwner(id)) pn.append(el("span", "badge-owner", "Owner"));
   top.append(avatarEl(id, 88), pn);
   const m = memberOf(id) || {};
   const st = el("div", "pstat");
@@ -1240,7 +1250,8 @@ function openProfile(id, refreshOnly){
   const stat = (k, v) => { const s = el("div", "stat"); s.append(el("div", "k", k), el("div", "v", v)); stats.append(s); };
   const j = m.joined_at ? new Date(m.joined_at) : null;
   stat("Member since", !j ? "Unknown" : isNaN(j) ? "The beginning" : fmtDate(j));
-  stat("Invited by", !m.joined_at ? "Unknown" : isNaN(j) ? "Original member" : m.invited_by ? (m.invited_by === myId ? "You" : nameOf(m.invited_by)) : "Owner code");
+  if (curRoom !== MAIN_ROOM) stat(m.role === "owner" ? "Room" : "Let in by", m.role === "owner" ? "Created this room" : m.invited_by ? (m.invited_by === myId ? "You" : nameOf(m.invited_by)) : "Unknown");
+  else stat("Invited by", !m.joined_at ? "Unknown" : isNaN(j) ? "Original member" : m.invited_by ? (m.invited_by === myId ? "You" : nameOf(m.invited_by)) : "Owner code");
   stat("Messages", String(Number(m.message_count) || 0));
   stat("Files shared", String(Number(m.file_count) || 0));
   stat("Reactions given", String(Number(m.reaction_count) || 0));
@@ -1400,6 +1411,7 @@ async function openInvites(){
 async function listInvites(box){
   box.textContent = "Loading...";
   const { data, error } = await sb.from("chat_invites").select("id,code_hint,note,created_by,created_at,max_uses,uses,expires_at,revoked").order("created_at", { ascending: false }).limit(100);
+  const mainList = curRoom === MAIN_ROOM ? members : ((await sb.rpc("list_members")).data || []);
   box.textContent = "";
   if (error){ box.textContent = "Couldn't load invites."; return; }
   if (!data.length){ box.append(el("p", "hint2", "No invites yet.")); return; }
@@ -1417,7 +1429,7 @@ async function listInvites(box){
       t2.append(rv);
     } else t2.append(el("span", "lbl", status));
     const by = inv.created_by === myId ? "you" : nameOf(inv.created_by);
-    const usedBy = members.filter(m => m.invite_id === inv.id).map(m => m.user_id === myId ? "You" : nameOf(m.user_id));
+    const usedBy = mainList.filter(m => m.invite_id === inv.id).map(m => m.user_id === myId ? "You" : nameOf(m.user_id));
     card.append(t2,
       el("div", "sub2", "Made by " + by + " on " + fmtDate(new Date(inv.created_at)) + " · " + inv.uses + " of " + inv.max_uses + " used" + (inv.expires_at && status === "Active" ? " · expires " + fmtDate(new Date(inv.expires_at)) : "")),
       el("div", "sub2", usedBy.length ? "Joined with it: " + usedBy.join(", ") : "Nobody has joined with it yet."));
@@ -1434,19 +1446,21 @@ function renderAccount(){
   if (!me){ row("Status", "Not connected"); return; }
   const st = el("span", "ok"); st.append(el("span", "dot"), "Signed in"); row("Status", st);
   row("Name", (profiles[myId] && profiles[myId].name) || "Not set yet");
-  if (inChat) row("Role", isOwner() ? "Owner" : "Member");
+  if (inChat) row("Role", curRoom === MAIN_ROOM ? (isOwner() ? "Owner" : "Member") : (amRoomOwner() ? "Room owner" : "Room member"));
   const linked = (me.identities || []).map(i => i.provider).filter(p => p && p !== "anonymous");
   row("Type", me.is_anonymous ? "Guest account for this browser" : "Full account");
   row("Linked to", linked.length ? linked.map(p => PROVIDER_LABELS[p] || p).join(", ") : "Nothing. Not linked to any email or outside account.");
   row("Email", me.email || "None");
-  if (joinedAt === null) row("Member", "Not yet. Needs an invite code.");
+  const ri = curRoomInfo();
+  if (curRoom !== MAIN_ROOM && ri && ri.joined_at){ const d = new Date(ri.joined_at); row("In this room since", d.toLocaleString([], { dateStyle:"medium", timeStyle:"short" })); }
+  else if (joinedAt === null) row("Member", mainMember ? "Yes" : "Not yet. Needs an invite code.");
   else { const d = new Date(joinedAt); row("Member since", isNaN(d) ? "The beginning, full history" : d.toLocaleString([], { dateStyle:"medium", timeStyle:"short" })); }
   const idWrap = el("span"); const cp = btn("mini", "Copy"); cp.style.marginLeft = "6px";
   cp.addEventListener("click", async () => { try{ await navigator.clipboard.writeText(myId); cp.textContent = "Copied"; }catch(e){ cp.textContent = "Can't copy"; } setTimeout(() => cp.textContent = "Copy", 1500); });
   idWrap.append(myId.slice(0, 8) + "...", cp); row("Account ID", idWrap);
   if (inChat){
     acts.append(btn("mini", "Edit my profile", () => { closeMenu(); openProfile(myId); }));
-    acts.append(btn("mini", "Invite someone", openInvites));
+    if (mainMember) acts.append(btn("mini", "Invite someone", openInvites));
     if (isOwner()) acts.append(btn("mini", "Claude's personality", openBotNote));
   }
   if (!(me.identities || []).some(i => i.provider === "google")) acts.append(btn("mini strong", "Link Gmail", linkGmail));
@@ -1526,7 +1540,7 @@ function actionsEl(m){
   acts.append(btn("mini", "Reply", () => { pickerFor = null; startCtx("reply", m); render(); }));
   if (m.text) acts.append(btn("mini", "Copy", async () => { try{ await navigator.clipboard.writeText(m.text); }catch(e){} pickerFor = null; render(); }));
   if (m.from === myId && m.text && !isBareMedia(m.text)) acts.append(btn("mini", "Edit", () => { pickerFor = null; startCtx("edit", m); render(); }));
-  if (m.from === myId || isOwner() || amRoomOwner()) acts.append(btn("mini danger", "Delete", async () => {
+  if (m.from === myId || (curRoom === MAIN_ROOM && isOwner()) || amRoomOwner()) acts.append(btn("mini danger", "Delete", async () => {
     if (!confirm("Delete this message for everyone?")) return;
     pickerFor = null;
     const { data, error } = await sb.rpc("delete_message", { p_id: m.id });
@@ -1621,6 +1635,8 @@ function renderText(node, str, flags){
   }
   appendMentions(node, str.slice(last), flags);
 }
+// Pictures and videos from these hosts load on their own. Anything else waits for a tap, so a link can't quietly collect viewers' addresses.
+const TRUSTED_MEDIA = /(^|\.)(giphy\.com|klipy\.com|yarn\.co|kat-chat-flame\.vercel\.app)$/;
 function embedFor(url){
   let m;
   if ((m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i))){
@@ -1635,8 +1651,7 @@ function embedFor(url){
       f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.allowFullscreen = true; f.title = "Video";
       r.append(f); b.replaceWith(r);
     });
-    const cap = el("span", "cap", "Video"); box.append(b, cap);
-    fetch("https://noembed.com/embed?url=" + encodeURIComponent(url)).then(r => r.json()).then(d => { if (d && d.title) cap.textContent = d.title; }).catch(() => {});
+    const cap = el("span", "cap", "YouTube video"); box.append(b, cap);
     return box;
   }
   if ((m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i))){
@@ -1668,10 +1683,22 @@ function embedFor(url){
     box.append(v, el("span", "cap", "\u{1F3AC} Movie clip. Tap this bar to react or delete.")); return box;
   }
   const path = url.split(/[?#]/)[0].toLowerCase();
-  if (/\.(mp3|m4a|ogg|oga|wav|aac|flac|opus)$/.test(path)){ const box = el("div", "embed"); box.append(audioPlayer(a => { a.src = url; }, 0)); return box; }
-  if (/\.(mp4|webm|mov|m4v)$/.test(path)){ const box = el("div", "embed"); const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.src = url; v.className = "media"; box.append(v, el("span", "cap", (/klipy/i.test(url) ? "\u{1F3AC} Movie clip" : "Video") + ". Tap this bar to react or delete.")); return box; }
-  if (/\.(png|jpe?g|gif|webp|avif)$/.test(path)){ const box = el("div", "embed"); const i = document.createElement("img"); i.src = url; i.alt = ""; i.loading = "lazy"; box.append(i); return box; }
-  return null;
+  let kind = /\.(mp3|m4a|ogg|oga|wav|aac|flac|opus)$/.test(path) ? "audio" : /\.(mp4|webm|mov|m4v)$/.test(path) ? "video" : /\.(png|jpe?g|gif|webp|avif)$/.test(path) ? "image" : "";
+  if (!kind) return null;
+  const box = el("div", "embed");
+  const build = () => {
+    if (kind === "audio") return audioPlayer(a => { a.src = url; }, 0);
+    if (kind === "video"){ const v = document.createElement("video"); v.controls = true; v.preload = "metadata"; v.playsInline = true; v.src = url; v.className = "media"; return v; }
+    const i = document.createElement("img"); i.src = url; i.alt = ""; i.loading = "lazy"; return i;
+  };
+  let host = ""; try{ host = new URL(url).hostname.toLowerCase(); }catch(e){ return null; }
+  if (TRUSTED_MEDIA.test(host)) box.append(build());
+  else {
+    const t = btn("mini", "Tap to load the " + (kind === "image" ? "picture" : kind) + " from " + host, ev => { ev.stopPropagation(); t.replaceWith(build()); });
+    box.append(t);
+  }
+  if (kind === "video") box.append(el("span", "cap", (/klipy/i.test(host) ? "\u{1F3AC} Movie clip" : "Video") + ". Tap this bar to react or delete."));
+  return box;
 }
 
 /* Audio player that always shows length and real progress */
@@ -1726,6 +1753,18 @@ let padOn = true;
 function padMissing(err){ return !!err && (err.code === "PGRST204" || err.code === "PGRST202" || err.code === "42703" || /\bpad\b|p_pad/i.test(err.message || "")); }
 // The same message table also carries other rooms, such as Field Chat in Field Twin. This chat only shows its own room.
 function inRoom(r){ return !!r && (r.room || MAIN_ROOM) === curRoom; }
+let roomCol = true;
+function noRoomCol(err){ return !!err && (err.code === "42703" || /column .*room/i.test(err.message || "")); }
+// Runs a chat_messages read scoped to the current room. Falls back to unscoped if the room column isn't there yet.
+async function roomRead(build){
+  if (roomCol){
+    const r = await build(sb.from("chat_messages").select("*").eq("room", curRoom));
+    if (!noRoomCol(r.error)) return r;
+    roomCol = false;
+  }
+  return build(sb.from("chat_messages").select("*"));
+}
+let roomSeq = 0;
 async function insertPadded(table, row, single){
   if (table === "chat_messages" && curRoom !== MAIN_ROOM && row.room === undefined) row = { ...row, room: curRoom };
   const run = r => single ? sb.from(table).insert(r).select().single() : sb.from(table).insert(r);
@@ -1796,7 +1835,8 @@ function openLightbox(m){
   const img = document.createElement("img"); img.alt = m.fname || "";
   const row = el("div", "prow");
   const save = el("a", "mini", "Save"); save.download = m.fname || "picture";
-  row.append(save, btn("mini", "Close", () => lb.remove()));
+  if (!IS_ANDROID_APP) row.append(save);
+  row.append(btn("mini", "Close", () => lb.remove()));
   lb.append(img, row);
   lb.addEventListener("click", e => { if (e.target === lb || e.target === img) lb.remove(); });
   document.body.append(lb);
@@ -1838,24 +1878,33 @@ function fileEl(m){
   return b;
 }
 let uploading = false;
-async function sendFiles(list){
-  if (!ready || uploading) return;
-  const files = [...list]; if (!files.length) return;
+const uploadQueue = [];
+async function sendFiles(list, roomFor){
+  const room = roomFor || curRoom;
+  for (const f of [...list]) uploadQueue.push({ file: f, room });
+  if (uploading) return;
+  if (!ready){ showNote("Still connecting. Your file will send when the chat reconnects."); waitThenSend(); return; }
   uploading = true; $("#attachBtn").disabled = true;
-  for (const file of files){
+  while (uploadQueue.length){
+    const { file, room } = uploadQueue.shift();
     if (file.size > MAX_BYTES){ showNote(file.name + " is over 50 MB and wasn't sent."); continue; }
     showNote("Uploading " + file.name + "...");
     const path = myId + "/" + Date.now() + "-" + randChars(12) + ".bin";
     const up = await sb.storage.from(BUCKET).upload(path, padFile(file), { contentType: "application/octet-stream" });
     if (up.error){ showNote("Upload of " + file.name + " failed. Try again."); continue; }
-    const row = { body: "", file_path: path, file_name: file.name.slice(0, 200), file_size: file.size, file_type: file.type || "" };
+    const row = { body: "", file_path: path, file_name: file.name.slice(0, 200), file_size: file.size, file_type: file.type || "", room };
     row.pad = textPad(row.body, row.file_name, row.file_type);
-    if (ctx && ctx.type === "reply"){ row.reply_to = ctx.id; endCtx(); }
+    if (room === curRoom && ctx && ctx.type === "reply"){ row.reply_to = ctx.id; endCtx(); }
     const { data, error } = await insertPadded("chat_messages", row, true);
     if (error){ showNote(file.name + " uploaded but the message failed. Try again."); continue; }
-    const nm = toMsg(data); addMsg(nm); bumpStats(nm); showNote("");
+    const nm = toMsg(data); if (room === curRoom){ addMsg(nm); bumpStats(nm); } showNote("");
   }
   uploading = false; $("#attachBtn").disabled = !ready;
+}
+let waitingToSend = false;
+function waitThenSend(){
+  if (waitingToSend) return; waitingToSend = true;
+  const t = setInterval(() => { if (ready){ clearInterval(t); waitingToSend = false; if (uploadQueue.length && !uploading){ const q = uploadQueue.splice(0); q.forEach(x => sendFiles([x.file], x.room)); } } }, 1000);
 }
 $("#attachBtn").addEventListener("click", () => $("#fileInput").click());
 $("#fileInput").addEventListener("change", e => { sendFiles(e.target.files); e.target.value = ""; });
@@ -1877,6 +1926,7 @@ async function startRecording(){
   const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
   recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
   recChunks = []; recCancel = false;
+  const recRoom = curRoom;
   recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
   recorder.onstop = () => {
     stream.getTracks().forEach(t => t.stop());
@@ -1887,7 +1937,7 @@ async function startRecording(){
     const ext = mt.includes("mp4") ? "m4a" : mt.includes("ogg") ? "ogg" : "webm";
     const secs = Math.max(1, Math.round((Date.now() - recStart) / 1000));
     const file = new File(recChunks, "voice-note-" + secs + "s-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + "." + ext, { type: mt.split(";")[0] });
-    sendFiles([file]);
+    sendFiles([file], recRoom);
   };
   recorder.start(); recording = true; recStart = Date.now();
   $("#micBtn").classList.add("rec"); $("#micBtn").setAttribute("aria-label", "Stop and send voice note");
@@ -1904,6 +1954,7 @@ $("#micBtn").addEventListener("click", () => { if (recording) stopRecording(fals
 
 /* Messages, rendered without rebuilding what didn't change, so playing videos keep playing */
 function addMsg(m){
+  if (m.room && m.room !== curRoom) return;
   const i = msgs.findIndex(x => x.id === m.id);
   if (i >= 0){ msgs[i] = m; render(); return; }
   msgs.push(m); msgs.sort((a, b) => a.at - b.at);
@@ -1948,7 +1999,7 @@ function updateWrap(wrap, m, cont){
   const replyTarget = m.reply ? msgById(m.reply) : null;
   const metaSig = [cont, nameOf(m.from), colorOf(m.from), avatarKey(m.from), m.edited, m.deleted, m.at, root.dataset.skin, root.dataset.skin === "tomatomo" ? TOMA.key(m.from) : ""].join("~");
   const bubSig = [m.text, m.path, m.deleted, colorOf(m.from), m.reply, replyTarget ? replyTarget.text + replyTarget.deleted + nameOf(replyTarget.from) : "", mentionNames().join(","), nameOf(myId)].join("~");
-  const actSig = pickerFor === m.id ? "open~" + reactSig(m) + isOwner() : "";
+  const actSig = pickerFor === m.id ? "open~" + reactSig(m) + isOwner() + amRoomOwner() + curRoom : "";
   const rxSig = reactSig(m) + "~" + mentionNames().length;
   if (wrap._metaSig !== metaSig){ setPart(wrap, "meta", metaEl(m, mine), null); wrap._metaSig = metaSig; }
   if (wrap._bubSig !== bubSig){
@@ -2001,7 +2052,9 @@ async function loadOlder(){
   if (!msgs.length) return;
   const b = nodes.get("older"); if (b) b.disabled = true;
   const h = lane.scrollHeight, top = lane.scrollTop;
-  const { data } = await sb.from("chat_messages").select("*").eq("room", curRoom).lt("id", msgs[0].id).order("id", { ascending: false }).limit(OLDER);
+  const seq = roomSeq;
+  const { data } = await roomRead(q => q.lt("id", msgs[0].id).order("id", { ascending: false }).limit(OLDER));
+  if (seq !== roomSeq){ if (b) b.disabled = false; return 0; }
   if (data){
     hasOlder = data.length === OLDER;
     data.filter(inRoom).forEach(r => { const m = toMsg(r); if (!msgById(m.id)){ msgs.push(m); seen.add(m.id); } });
@@ -2029,12 +2082,12 @@ function markRead(){
   const nearBottom = lane.scrollHeight - lane.scrollTop - lane.clientHeight < 120;
   const lastId = msgs[msgs.length - 1].id;
   if (nearBottom && lastId > lastRead){ lastRead = lastId; store(lastReadKey(), String(lastRead)); }
-  if (hiddenUnread){ hiddenUnread = 0; document.title = TITLE; }
+  if (hiddenUnread){ hiddenUnread = 0; titleNow(); }
 }
 lane.addEventListener("scroll", () => { if (!document.hidden) markRead(); }, { passive: true });
 function noteIncoming(m){
   if (m.from === myId) return;
-  if (document.hidden){ hiddenUnread++; document.title = "(" + hiddenUnread + ") " + TITLE; if (unreadMark === null) unreadMark = m.id; }
+  if (document.hidden){ hiddenUnread++; titleNow(); if (unreadMark === null) unreadMark = m.id; }
 }
 
 /* Composer */
@@ -2144,7 +2197,7 @@ $("#searchBtn").addEventListener("click", () => {
     if (q.length < 2){ res.append(el("p", "hint2", "Type at least two letters.")); return; }
     res.append(el("p", "hint2", "Searching..."));
     const safe = q.replace(/[\\%_]/g, c => "\\" + c);
-    const found = await sb.from("chat_messages").select("*").eq("room", curRoom).is("deleted_at", null).ilike("body", "%" + safe + "%").order("id", { ascending: false }).limit(50);
+    const found = await roomRead(q => q.is("deleted_at", null).ilike("body", "%" + safe + "%").order("id", { ascending: false }).limit(50));
     const error = found.error, data = (found.data || []).filter(inRoom);
     res.textContent = "";
     if (error){ res.append(el("p", "hint2", "Search didn't work. Try again.")); return; }
@@ -2235,7 +2288,9 @@ async function catchUp(){
   if (!inChat || !sb || catching) return; catching = true;
   try{
     const lastId = msgs.length ? Math.max(...msgs.map(m => m.id)) : 0;
-    const { data } = await sb.from("chat_messages").select("*").eq("room", curRoom).gt("id", lastId).order("id", { ascending: true }).limit(500);
+    const seq = roomSeq;
+    const { data } = await roomRead(q => q.gt("id", lastId).order("id", { ascending: true }).limit(500));
+    if (seq !== roomSeq) return;
     let fromOthers = false;
     if (data && data.length){
       for (const r of data){
@@ -2260,6 +2315,10 @@ async function catchUp(){
     const n = await sb.from("chat_names").select("id,name,color,avatar_path");
     if (n.data){ n.data.forEach(setProfile); loadAvatars(); }
     render(); renderRail();
+    if (curRoom !== MAIN_ROOM){
+      const before = curRoom; await loadRooms();
+      if (before === curRoom && !myRooms.some(r => r.id === curRoom)){ showNote("You're no longer in that room."); catching = false; leaveToNextRoom(); return; }
+    }
   }catch(e){}
   catching = false;
 }
@@ -2381,24 +2440,27 @@ function paintRooms(){
   $("#roomNew").hidden = !mainMember;
   $("#roomManage").hidden = curRoom === MAIN_ROOM;
   chip.hidden = !inChat || !myRooms.length;
-  chip.textContent = roomName(curRoom);
-  document.title = curRoom === MAIN_ROOM ? "Cat Command Chat" : roomName(curRoom) + " · Cat Command Chat";
+  chip.textContent = ""; chip.append(el("span", null, roomName(curRoom)));
+  titleNow();
 }
 async function switchRoom(id){
   closeMenu(); if (sheetFor) closeSheet();
   if (id === curRoom) return;
-  curRoom = id; store("katRoom", id);
+  curRoom = id; store("katRoom", id); const seq = ++roomSeq;
+  if (recording) stopRecording(true);
   if (ctx) endCtx();
+  setBotThinking(false); typingText = ""; paintTyping();
   msgs = []; seen.clear(); reacts.clear(); nodes.clear(); lane.textContent = "";
   pickerFor = null; unreadMark = null; hasOlder = false; members = []; online = new Set();
   lastRead = Number(load(lastReadKey()) || 0);
   paintRooms(); renderRail();
   $("#onlineText").textContent = "Loading...";
   await Promise.all([loadRecent(), refreshMembers()]);
+  if (seq !== roomSeq) return;
   const firstNew = msgs.find(m => m.id > lastRead && m.from !== myId);
   unreadMark = lastRead && firstNew ? firstNew.id : null;
   render(); lane.scrollTop = lane.scrollHeight;
-  updateHeader(); subscribeChan();
+  updateHeader(); subscribeChan(); titleNow();
 }
 function openRoomsSheet(){
   const sh = openSheet("rooms");
@@ -2416,6 +2478,21 @@ function openRoomsSheet(){
   if (curRoom !== MAIN_ROOM) acts.append(btn("mini", "Manage this room", openRoomSheet));
   if (mainMember) acts.append(btn("mini strong", "Create a room", openRoomCreate));
   sh.append(acts);
+  const kf = el("form", "funrow"); kf.style.marginTop = "14px";
+  const kin = document.createElement("input"); kin.placeholder = "Have a room key? Type it here"; kin.autocapitalize = "none"; kin.autocomplete = "off"; kin.spellcheck = false; kin.setAttribute("aria-label", "Room key");
+  const kgo = btn("mini strong", "Join"); kgo.type = "submit";
+  const kerr = el("p", "hint2");
+  kf.append(kin, kgo);
+  kf.addEventListener("submit", async e => {
+    e.preventDefault();
+    const code = kin.value.trim().toLowerCase(); if (!code){ kerr.textContent = "Type the room key first."; return; }
+    kgo.disabled = true; kerr.textContent = "Checking...";
+    const { data, error } = await sb.rpc("room_join", { p_code: code });
+    kgo.disabled = false;
+    if (error || !data){ kerr.textContent = "That room key didn't work. Check it with the room's owner."; return; }
+    await loadRooms(); switchRoom(String(data));
+  });
+  sh.append(kf, kerr);
 }
 function openRoomCreate(){
   closeMenu();
@@ -2477,6 +2554,7 @@ async function openRoomSheet(){
   sh.append(el("p", "sh", "People in this room"));
   const memBox = el("div"); sh.append(memBox);
   const { data: rm } = await sb.rpc("room_members", { p_room: r.id });
+  if (!sh.isConnected || sheetFor !== "room" || curRoom !== r.id || !sh.contains(memBox)) return;
   for (const m of rm || []){
     const row = el("div", "rmem");
     row.append(avatarEl(m.user_id, 32), el("span", "nm", (m.user_id === myId ? "You" : nameOf(m.user_id)) + (m.role === "owner" ? " (owner)" : "")));
@@ -2514,16 +2592,19 @@ async function roomLeave(){
   if (!confirm("Leave this room? You'll need a new key to get back in.")) return;
   const { error } = await sb.rpc("room_leave", { p_room: curRoom });
   if (error){ showNote("Couldn't leave the room. Try again."); return; }
+  await leaveToNextRoom();
+}
+async function leaveToNextRoom(){
   await loadRooms();
   if (mainMember) switchRoom(MAIN_ROOM);
   else if (myRooms.length) switchRoom(myRooms[0].id);
-  else { closeSheet(); localStorage.removeItem("katRoom"); location.reload(); }
+  else { closeSheet(); store("katRoom", ""); location.reload(); }
 }
 async function roomDelete(){
   if (!confirm("Delete this room for everyone? Its messages go away too.")) return;
   const { error } = await sb.rpc("room_delete", { p_room: curRoom });
   if (error){ showNote("Couldn't delete the room. Try again."); return; }
-  await loadRooms(); switchRoom(mainMember ? MAIN_ROOM : (myRooms[0] ? myRooms[0].id : MAIN_ROOM));
+  await leaveToNextRoom();
 }
 $("#roomChip").addEventListener("click", openRoomsSheet);
 $("#roomNew").addEventListener("click", openRoomCreate);
@@ -2741,7 +2822,9 @@ async function chessResign(id){
 
 /* Startup */
 async function loadRecent(){
-  const { data } = await sb.from("chat_messages").select("*").eq("room", curRoom).order("id", { ascending: false }).limit(PAGE);
+  const seq = roomSeq;
+  const { data } = await roomRead(q => q.order("id", { ascending: false }).limit(PAGE));
+  if (seq !== roomSeq) return false;
   if (data){
     hasOlder = data.length === PAGE;
     msgs = data.filter(inRoom).map(toMsg).sort((a, b) => a.at - b.at); msgs.forEach(x => seen.add(x.id));
@@ -2793,8 +2876,10 @@ function subscribeChan(){
       if (msgById(p.new.id)){ addMsg(toMsg(p.new)); refreshMembers(); }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_reactions" }, p => {
-      if (msgById(p.new.message_id)){ addReact(p.new); render(); const rm = msgById(p.new.message_id); if (rm && rm.from === myId && p.new.user_id !== myId) TOMA.event("heart"); }
-      const mm = memberOf(p.new.user_id); if (mm) mm.reaction_count = (Number(mm.reaction_count) || 0) + 1;
+      if (msgById(p.new.message_id)){
+        addReact(p.new); render(); const rm = msgById(p.new.message_id); if (rm && rm.from === myId && p.new.user_id !== myId) TOMA.event("heart");
+        const mm = memberOf(p.new.user_id); if (mm) mm.reaction_count = (Number(mm.reaction_count) || 0) + 1;
+      }
     })
     .on("postgres_changes", { event: "DELETE", schema: "public", table: "chat_reactions" }, p => { removeReact(p.old); render(); })
     .on("postgres_changes", { event: "*", schema: "public", table: "chat_names" }, p => {
@@ -2827,6 +2912,11 @@ async function start(){
     renderAccount(); return;
   }
   const mem = await sb.from("chat_members").select("joined_at,role").eq("user_id", myId).maybeSingle();
+  if (mem.error){
+    $("#onlineText").textContent = "Offline";
+    showNote("Couldn't reach the chat server. Retrying...");
+    setTimeout(() => location.reload(), 8000); return;
+  }
   mainMember = !!mem.data; if (mem.data){ joinedAt = mem.data.joined_at; mainRole = mem.data.role || "member"; }
   await loadRooms();
   const saved = load("katRoom");

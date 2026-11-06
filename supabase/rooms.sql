@@ -6,6 +6,27 @@ create extension if not exists pgcrypto;
 alter table chat_messages add column if not exists room text not null default 'kat';
 create index if not exists chat_messages_room_id on chat_messages (room, id desc);
 
+-- Random filler so message and reaction sizes don't show on the wire. The app already sends it.
+alter table chat_messages add column if not exists pad text;
+alter table chat_reactions add column if not exists pad text;
+create or replace function edit_message(p_id bigint, p_body text, p_pad text) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if char_length(trim(coalesce(p_body, ''))) = 0 then return false; end if;
+  update chat_messages set body = left(p_body, 4000), pad = left(p_pad, 9000), edited_at = now()
+    where id = p_id and sender = auth.uid() and deleted_at is null;
+  return found;
+end $$;
+revoke execute on function edit_message(bigint, text, text) from anon, public;
+grant execute on function edit_message(bigint, text, text) to authenticated;
+
+-- Profile colors must be a plain hex color.
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'chat_names_color_hex') then
+    alter table chat_names add constraint chat_names_color_hex check (color is null or color ~ '^#[0-9a-fA-F]{6}$') not valid;
+  end if;
+end $$;
+
 create table if not exists chat_rooms (
   id text primary key,
   name text not null check (char_length(name) between 1 and 40),
@@ -62,8 +83,9 @@ language sql stable security definer set search_path = public as $$
   order by m.joined_at
 $$;
 
+drop function if exists room_members(text);
 create or replace function room_members(p_room text)
-returns table (user_id uuid, role text, joined_at timestamptz, invited_by uuid, message_count bigint, file_count bigint, reaction_count bigint)
+returns table (user_id uuid, role text, joined_at timestamptz, invited_by uuid, message_count bigint, file_count bigint, reaction_count bigint, last_message_at timestamptz)
 language plpgsql stable security definer set search_path = public as $$
 begin
   if room_role(p_room) is null then raise exception 'not in this room'; end if;
@@ -71,13 +93,14 @@ begin
     select m.user_id, m.role, m.joined_at, m.invited_by,
       (select count(*) from chat_messages c where c.room = p_room and c.sender = m.user_id and c.deleted_at is null),
       (select count(*) from chat_messages c where c.room = p_room and c.sender = m.user_id and c.deleted_at is null and c.file_path is not null),
-      (select count(*) from chat_reactions x join chat_messages c on c.id = x.message_id where c.room = p_room and x.user_id = m.user_id)
+      (select count(*) from chat_reactions x join chat_messages c on c.id = x.message_id where c.room = p_room and x.user_id = m.user_id),
+      (select max(c.created_at) from chat_messages c where c.room = p_room and c.sender = m.user_id)
     from chat_room_members m where m.room = p_room
     order by m.joined_at;
 end $$;
 
 create or replace function room_create(p_name text) returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare rid text;
 begin
   if auth.uid() is null or not exists (select 1 from chat_members where user_id = auth.uid()) then raise exception 'only main chat members can create rooms'; end if;
@@ -89,7 +112,7 @@ begin
 end $$;
 
 create or replace function room_key_new(p_room text, p_max_uses int, p_days int) returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare code text;
 begin
   if room_role(p_room) is distinct from 'owner' then raise exception 'only the room owner can make keys'; end if;
@@ -120,10 +143,11 @@ begin
 end $$;
 
 create or replace function room_join(p_code text) returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare k chat_room_keys;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
+  if exists (select 1 from chat_bans where user_id = auth.uid()) then perform pg_sleep(1); return null; end if;
   select * into k from chat_room_keys where code_hash = encode(digest(lower(trim(p_code)), 'sha256'), 'hex') for update;
   if not found or k.revoked or k.uses >= k.max_uses or (k.expires_at is not null and k.expires_at < now()) then return null; end if;
   if exists (select 1 from chat_room_members where room = k.room and user_id = auth.uid()) then return k.room; end if;
@@ -212,7 +236,9 @@ create policy "members upload own avatar" on storage.objects for insert to authe
   bucket_id = 'chat-avatars' and (storage.foldername(name))[1] = auth.uid()::text and (my_join_time() is not null or in_any_room()));
 drop policy if exists "members read avatars" on storage.objects;
 create policy "members read avatars" on storage.objects for select to authenticated using (
-  bucket_id = 'chat-avatars' and (my_join_time() is not null or in_any_room()));
+  bucket_id = 'chat-avatars' and (my_join_time() is not null or exists (
+    select 1 from chat_room_members a join chat_room_members b on a.room = b.room
+    where a.user_id = auth.uid() and b.user_id::text = (storage.foldername(name))[1])));
 
 drop policy if exists "own push add" on chat_push;
 create policy "own push add" on chat_push for insert to authenticated with check (user_id = auth.uid() and (my_join_time() is not null or in_any_room()));
@@ -232,4 +258,80 @@ begin
   values (case when p_white then auth.uid() else p_opponent end, case when p_white then p_opponent else auth.uid() end, auth.uid())
   returning * into g;
   return g;
+end $$;
+
+-- The database sets the time on every new message, so nobody can backdate or postdate one.
+create or replace function chat_messages_stamp() returns trigger language plpgsql as $$
+begin
+  new.created_at := now();
+  return new;
+end $$;
+drop trigger if exists chat_messages_stamp on chat_messages;
+create trigger chat_messages_stamp before insert on chat_messages for each row execute function chat_messages_stamp();
+
+-- Removing someone from the main chat also takes them out of every room and closes rooms they own.
+create or replace function remove_member(p_user uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_owner() or p_user = auth.uid() then return false; end if;
+  delete from chat_members where user_id = p_user;
+  insert into chat_bans (user_id, banned_by) values (p_user, auth.uid()) on conflict do nothing;
+  delete from chat_reactions where message_id in (select c.id from chat_messages c join chat_rooms r on r.id = c.room where r.owner = p_user);
+  delete from chat_push_log where message_id in (select c.id from chat_messages c join chat_rooms r on r.id = c.room where r.owner = p_user);
+  delete from chat_messages where room in (select id from chat_rooms where owner = p_user);
+  delete from chat_rooms where owner = p_user;
+  delete from chat_room_members where user_id = p_user;
+  return true;
+end $$;
+
+-- Editing needs you to still belong to the chat the message is in.
+create or replace function edit_message(p_id bigint, p_body text) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if char_length(trim(coalesce(p_body, ''))) = 0 then return false; end if;
+  update chat_messages set body = left(p_body, 4000), edited_at = now()
+    where id = p_id and sender = auth.uid() and deleted_at is null
+      and ((room in ('kat', 'field') and my_join_time() is not null) or (room like 'r-%' and room_role(room) is not null));
+  return found;
+end $$;
+create or replace function edit_message(p_id bigint, p_body text, p_pad text) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if char_length(trim(coalesce(p_body, ''))) = 0 then return false; end if;
+  update chat_messages set body = left(p_body, 4000), pad = left(p_pad, 9000), edited_at = now()
+    where id = p_id and sender = auth.uid() and deleted_at is null
+      and ((room in ('kat', 'field') and my_join_time() is not null) or (room like 'r-%' and room_role(room) is not null));
+  return found;
+end $$;
+
+-- Main member list counts only main chat activity, so side room activity stays private.
+create or replace function list_members()
+returns table (user_id uuid, joined_at timestamptz, role text, invited_by uuid, invite_id bigint, message_count bigint, file_count bigint, reaction_count bigint, last_message_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select m.user_id, m.joined_at, m.role, m.invited_by, m.invite_id,
+    (select count(*) from chat_messages c where c.sender = m.user_id and c.deleted_at is null and c.room in ('kat', 'field')),
+    (select count(*) from chat_messages c where c.sender = m.user_id and c.file_path is not null and c.room in ('kat', 'field')),
+    (select count(*) from chat_reactions r join chat_messages c on c.id = r.message_id where r.user_id = m.user_id and c.room in ('kat', 'field')),
+    (select max(c.created_at) from chat_messages c where c.sender = m.user_id and c.room in ('kat', 'field'))
+  from chat_members m
+  where exists (select 1 from chat_members x where x.user_id = auth.uid())
+  order by m.joined_at
+$$;
+
+-- Alerts only go to real push services and the ntfy topics the app makes.
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'chat_push_endpoint_ok') then
+    alter table chat_push add constraint chat_push_endpoint_ok check (
+      endpoint ~ '^ntfy:https://ntfy\.sh/kc-[A-Za-z0-9_-]{24}$'
+      or endpoint ~ '^https://(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|web\.push\.apple\.com|[a-z0-9.-]+\.notify\.windows\.com)/'
+    ) not valid;
+  end if;
+end $$;
+
+-- Claude answers each message at most once, even if asked twice at the same moment.
+do $$ begin
+  create unique index if not exists chat_messages_one_bot_reply on chat_messages (reply_to)
+    where sender = 'c1a0de00-0000-4000-8000-000000000001' and reply_to is not null;
+exception when unique_violation then
+  raise notice 'skipped the one-reply rule because older duplicate replies exist';
 end $$;

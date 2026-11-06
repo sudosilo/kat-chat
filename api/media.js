@@ -36,9 +36,14 @@ async function member(token){
   const ur = await fetch(SB_URL + "/auth/v1/user", { headers: { apikey: key, Authorization: "Bearer " + token } });
   if (!ur.ok) return false;
   const u = await ur.json();
-  const r = await fetch(SB_URL + "/rest/v1/chat_members?select=user_id&user_id=eq." + u.id, { headers: { apikey: key, Authorization: "Bearer " + key } });
+  if (!/^[0-9a-f-]{36}$/i.test(u.id || "")) return false;
+  const h = { headers: { apikey: key, Authorization: "Bearer " + key } };
+  const r = await fetch(SB_URL + "/rest/v1/chat_members?select=user_id&user_id=eq." + u.id, h);
   const j = r.ok ? await r.json() : [];
-  return j.length > 0 ? u.id : false;
+  if (j.length > 0) return u.id;
+  const rr = await fetch(SB_URL + "/rest/v1/chat_room_members?select=user_id&limit=1&user_id=eq." + u.id, h);
+  const jj = rr.ok ? await rr.json() : [];
+  return jj.length > 0 ? u.id : false;
 }
 
 async function gifs(q){

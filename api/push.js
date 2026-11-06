@@ -103,6 +103,7 @@ module.exports = async (req, res) => {
         return;
       }
       if (!webReady) return;
+      if (!/^https:\/\/(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|web\.push\.apple\.com|[a-z0-9.-]+\.notify\.windows\.com)\//.test(s.endpoint)) return;
       try{
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });
         sent++;

@@ -1,3 +1,5 @@
+2026-11-06, v2026.11.06. Chat rooms now set up from GitHub with no phone sign in needed. Info buttons were brought up to date with how things work now.
+
 2026-11-03, v2026.11.03. The message table now carries rooms so Field Chat inside Field Twin can share members, names and invites with this chat. This chat only shows its own room, and Field Chat messages never send Cat Command Chat notifications or reach the Claude member.
 
 2026-11-05, v2026.11.05. Added rooms. A room switcher lets you create a room, share a room key, and manage room members. Each room has its own Claude member and its own alerts, and room rules cover messages, names, files, pictures, alerts, and chess. A review pass fixed room switching, guest views, and key entry from the menu. Rooms are explained in About.

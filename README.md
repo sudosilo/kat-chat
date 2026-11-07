@@ -8,6 +8,6 @@ Live at kat-chat-flame.vercel.app
 
 This app is checked every morning by Control Troll.
 
-Latest change. 2026-11-05, v2026.11.05. Added rooms. A room switcher lets you create a room, share a room key, and manage room members. Each room has its own Claude member and its own alerts, and room rules cover messages, names, files, pictures, alerts, and chess. A review pass fixed room switching, guest views, and key entry from the menu. Rooms are explained in About.
+Latest change. 2026-11-06, v2026.11.06. Chat rooms now set up from GitHub with no phone sign in needed. Info buttons were brought up to date with how things work now.
 
 See CHANGELOG.md for the full history.
